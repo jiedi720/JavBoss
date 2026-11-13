@@ -877,3 +877,40 @@ export async function updateJavSeriesTranslation(id, { name, zh_name }) {
   if (!res.ok) throw await apiError(res)
   return res.json()
 }
+
+// Actress lookup by work code and profile fill. The lookup reads the credit list
+// of the work page (AV Wiki); the fill writes a previewed profile onto an idol and
+// can link that idol to the work being viewed.
+export async function lookupJavActresses(code, { signal } = {}) {
+  const params = new URLSearchParams({ code: String(code || '').trim() })
+  const res = await apiFetch(`/jav/actress-lookup?${params.toString()}`, { signal })
+  if (!res.ok) throw await apiError(res)
+  return res.json()
+}
+
+export async function fetchJavActressProfile(name, { signal } = {}) {
+  const params = new URLSearchParams({ name: String(name || '').trim() })
+  const res = await apiFetch(`/jav/actress-profile?${params.toString()}`, { signal })
+  if (!res.ok) throw await apiError(res)
+  return res.json()
+}
+
+export async function fillJavActressProfile(
+  { javId = 0, idolId = 0, name = '', overwrite = false, profile = null } = {},
+  { signal } = {}
+) {
+  const res = await apiFetch('/jav/actress-fill', {
+    method: 'POST',
+    headers: jsonHeaders,
+    body: JSON.stringify({
+      jav_id: Number(javId) || 0,
+      idol_id: Number(idolId) || 0,
+      name: String(name || '').trim(),
+      overwrite: Boolean(overwrite),
+      ...(profile ? { profile } : {}),
+    }),
+    signal,
+  })
+  if (!res.ok) throw await apiError(res)
+  return res.json()
+}

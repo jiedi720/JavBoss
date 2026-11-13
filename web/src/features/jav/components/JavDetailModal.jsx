@@ -1,4 +1,5 @@
 import Tooltip from '@/shared/ui/Tooltip'
+import ActressLookupModal from '@/features/jav/components/ActressLookupModal'
 import { useStore } from '@/store'
 import { preferChineseSeries, getSeriesDisplayName } from '@/features/jav/titleTranslation'
 import { restoreDetailScroll } from '@/utils/restoreDetailScroll'
@@ -529,6 +530,7 @@ export default function JavDetailModal({
     event.preventDefault()
     action(value)
   }
+  const [actressLookupOpen, setActressLookupOpen] = useState(false)
   const titleId = `jav-detail-title-${item?.id || 'item'}`
   const itemId = item?.id
   const itemSampleImages = item?.sample_images
@@ -695,360 +697,396 @@ export default function JavDetailModal({
   ]
 
   return (
-    <AppModal
-      ariaLabelledby={titleId}
-      backdropBlur="2px"
-      backdropColor="rgba(2, 6, 23, 0.7)"
-      className="p-3 sm:p-6"
-      contentClassName="flex max-h-[92vh] w-full max-w-[90rem] flex-col overflow-hidden rounded-xl bg-white dark:bg-ui-surface shadow-2xl"
-      onClose={onClose}
-      zIndex={1300}
-    >
-      <div className="flex items-center justify-between gap-3 border-b border-gray-200 px-4 py-1.5 dark:border-ui-border sm:px-5">
-        <div className="min-w-0">
-          <h2
-            id={titleId}
-            className="truncate text-sm font-semibold text-gray-900 dark:text-ui-text sm:text-base"
-          >
-            {title}
-          </h2>
-        </div>
-        <button
-          type="button"
-          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-gray-500 transition hover:bg-gray-100 hover:text-gray-900 dark:text-ui-faint dark:hover:bg-ui-hover dark:hover:text-ui-text"
-          onClick={onClose}
-          aria-label={zh('关闭', 'Close')}
-        >
-          <CloseOutlinedIcon sx={{ fontSize: 16 }} />
-        </button>
-      </div>
-
-      <div
-        ref={restoreScroll}
-        onScroll={(event) => {
-          if (!restoringScrollRef.current) onScrollChange?.(event.currentTarget.scrollTop)
-        }}
-        className="min-h-0 flex-1 overflow-y-auto p-4 [overflow-anchor:none] sm:p-6"
+    <>
+      <AppModal
+        ariaLabelledby={titleId}
+        backdropBlur="2px"
+        backdropColor="rgba(2, 6, 23, 0.7)"
+        className="p-3 sm:p-6"
+        contentClassName="flex max-h-[92vh] w-full max-w-[90rem] flex-col overflow-hidden rounded-xl bg-white dark:bg-ui-surface shadow-2xl"
+        onClose={onClose}
+        zIndex={1300}
       >
-        <div className="grid items-stretch gap-6 lg:grid-cols-[minmax(0,3fr)_minmax(19rem,2fr)]">
-          <div className="group relative aspect-[800/538] w-full overflow-hidden rounded-lg border border-gray-200 bg-gray-50 shadow-sm dark:border-ui-border dark:bg-ui-canvas">
-            {cover ? (
-              <img
-                src={cover}
-                alt={code || zh('JAV 封面', 'JAV cover')}
-                className="h-full w-full object-contain object-top"
-              />
-            ) : (
-              <span className="flex h-full items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200 text-lg font-semibold text-gray-500 dark:from-ui-muted dark:to-ui-hover dark:text-ui-faint">
-                {code || zh('暂无封面', 'No cover')}
-              </span>
-            )}
-            {canPlay ? (
-              <button
-                type="button"
-                className="absolute left-1/2 top-1/2 z-[1] flex h-20 w-20 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-black/65 text-white opacity-0 shadow-lg transition hover:bg-black/80 focus-visible:opacity-100 group-hover:opacity-100"
-                onClick={onPlay}
-                aria-label={zh('播放', 'Play')}
-              >
-                <PlayArrowIcon sx={{ fontSize: 54 }} />
-              </button>
-            ) : null}
+        <div className="flex items-center justify-between gap-3 border-b border-gray-200 px-4 py-1.5 dark:border-ui-border sm:px-5">
+          <div className="min-w-0">
+            <h2
+              id={titleId}
+              className="truncate text-sm font-semibold text-gray-900 dark:text-ui-text sm:text-base"
+            >
+              {title}
+            </h2>
           </div>
-
-          <div className="flex min-w-0 flex-col gap-5">
-            <dl className="overflow-hidden rounded-lg border border-gray-200 bg-white dark:border-ui-border dark:bg-ui-surface">
-              {detailRows.map((row, index) => (
-                <div
-                  key={row.label}
-                  className={`grid grid-cols-[5.5rem_minmax(0,1fr)] gap-3 px-4 py-2.5 text-sm ${
-                    index > 0 ? 'border-t border-gray-100 dark:border-ui-border' : ''
-                  }`}
-                >
-                  <dt className="font-medium text-gray-500 dark:text-ui-faint">{row.label}</dt>
-                  <dd className="min-w-0 break-words text-gray-800 dark:text-ui-text">
-                    {row.content}
-                  </dd>
-                </div>
-              ))}
-            </dl>
-
-            {femaleIdols.length > 0 ? (
-              <section aria-label={zh('女优', 'Actresses')}>
-                <h3 className="mb-2 text-sm font-semibold text-gray-800 dark:text-ui-text">
-                  {zh('女优', 'Actresses')}
-                </h3>
-                <div className="flex flex-wrap gap-2">
-                  {femaleIdols.map((idol) => (
-                    <a
-                      key={idol?.id || idol?.name}
-                      href={buildIdolUrl?.(idol) || '#'}
-                      onClick={(event) => handleFilterClick(event, onSelectIdol, idol)}
-                      className="rounded-full border border-purple-200 bg-purple-50 px-3 py-1 text-xs font-medium text-purple-700 transition hover:border-purple-300 hover:bg-purple-100 dark:border-purple-800 dark:bg-purple-950 dark:text-purple-300 dark:hover:border-purple-400 dark:hover:bg-purple-900"
-                      onMouseEnter={(event) => handleHoverStart('idol', idol, event)}
-                      onMouseLeave={scheduleHoverClose}
-                    >
-                      {getIdolDisplayName(idol, preferChineseName)}
-                    </a>
-                  ))}
-                </div>
-              </section>
-            ) : null}
-
-            {maleIdols.length > 0 ? (
-              <section aria-label={zh('男优', 'Actors')}>
-                <h3 className="mb-2 text-sm font-semibold text-gray-800 dark:text-ui-text">
-                  {zh('男优', 'Actors')}
-                </h3>
-                <div className="flex flex-wrap gap-2">
-                  {maleIdols.map((actor) => (
-                    <a
-                      key={actor?.id || actor?.name}
-                      href={buildIdolUrl?.(actor) || '#'}
-                      onClick={(event) => handleFilterClick(event, onSelectIdol, actor)}
-                      className="rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-xs font-medium text-sky-700 transition hover:border-sky-300 hover:bg-sky-100 dark:border-sky-800 dark:bg-sky-950 dark:text-sky-300 dark:hover:border-sky-400 dark:hover:bg-sky-900"
-                      onMouseEnter={(event) => handleHoverStart('idol', actor, event)}
-                      onMouseLeave={scheduleHoverClose}
-                    >
-                      {getIdolDisplayName(actor, preferChineseName)}
-                    </a>
-                  ))}
-                </div>
-              </section>
-            ) : null}
-
-            {tags.length > 0 ? (
-              <section aria-label={zh('标签', 'Tags')}>
-                <h3 className="mb-2 text-sm font-semibold text-gray-800 dark:text-ui-text">
-                  {zh('标签', 'Tags')}
-                </h3>
-                <div className="flex flex-wrap gap-2">
-                  {tags.map((tag) => {
-                    const isUser = isUserJavTag(tag)
-                    return (
-                      <a
-                        key={`${tag?.id || tag?.name}-${tag?.provider || 0}`}
-                        href={buildTagUrl?.(tag) || '#'}
-                        onClick={(event) => handleFilterClick(event, onSelectTag, tag)}
-                        className={`rounded px-2.5 py-1 text-xs font-medium transition ${
-                          isUser
-                            ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200 dark:bg-emerald-900 dark:text-emerald-300 dark:hover:bg-emerald-900'
-                            : 'bg-orange-100 text-orange-700 hover:bg-orange-200 dark:bg-orange-900 dark:text-orange-300 dark:hover:bg-orange-900'
-                        }`}
-                      >
-                        {tag?.name}
-                      </a>
-                    )
-                  })}
-                </div>
-              </section>
-            ) : null}
-
-            {externalLinks.length > 0 ? (
-              <section aria-label={zh('外部链接', 'External links')}>
-                <h3 className="mb-2 text-sm font-semibold text-gray-800 dark:text-ui-text">
-                  {zh('外部链接', 'External links')}
-                </h3>
-                <div className="flex flex-wrap gap-2">
-                  {externalLinks.map((site) => (
-                    <a
-                      key={site.key}
-                      href={site.href}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 rounded border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-700 transition hover:border-gray-300 hover:bg-gray-50 dark:border-ui-border dark:bg-ui-surface dark:text-ui-secondary dark:hover:border-ui-faint dark:hover:bg-ui-hover"
-                      onClick={site.onClick}
-                    >
-                      <img
-                        src={site.icon}
-                        alt=""
-                        className={`h-4 w-4 ${site.loading ? 'animate-pulse' : ''}`}
-                        loading="lazy"
-                      />
-                      <span>{site.name}</span>
-                    </a>
-                  ))}
-                </div>
-              </section>
-            ) : null}
-
-            <section className="mt-auto pt-1" aria-label={zh('操作', 'Actions')}>
-              <h3 className="mb-2 text-sm font-semibold text-gray-800 dark:text-ui-text">
-                {zh('操作栏', 'Actions')}
-              </h3>
-              <div className="group flex flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  className="inline-flex items-center gap-1.5 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:border-gray-400 hover:bg-gray-50 dark:border-ui-border dark:bg-ui-surface dark:text-ui-secondary dark:hover:border-ui-faint dark:hover:bg-ui-hover"
-                  onClick={onOpenFavorites}
-                >
-                  {favoriteCount > 0 ? (
-                    <StarRoundedIcon className="text-amber-500" sx={{ fontSize: 16 }} />
-                  ) : (
-                    <StarBorderRoundedIcon sx={{ fontSize: 16 }} />
-                  )}
-                  {zh('收藏', 'Favorite')}
-                </button>
-                <button
-                  type="button"
-                  className="inline-flex items-center gap-1.5 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:border-gray-400 hover:bg-gray-50 dark:border-ui-border dark:bg-ui-surface dark:text-ui-secondary dark:hover:border-ui-faint dark:hover:bg-ui-hover"
-                  onClick={onEdit}
-                >
-                  <MovieEdit sx={{ fontSize: 16 }} />
-                  {zh('编辑', 'Edit')}
-                </button>
-                <JavFavoriteRatingEditor
-                  value={favoriteRating}
-                  saving={favoriteRatingSaving}
-                  error={favoriteRatingError}
-                  onChange={onFavoriteRatingChange}
-                />
-              </div>
-            </section>
-          </div>
+          <button
+            type="button"
+            className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-gray-500 transition hover:bg-gray-100 hover:text-gray-900 dark:text-ui-faint dark:hover:bg-ui-hover dark:hover:text-ui-text"
+            onClick={onClose}
+            aria-label={zh('关闭', 'Close')}
+          >
+            <CloseOutlinedIcon sx={{ fontSize: 16 }} />
+          </button>
         </div>
 
-        <div className="mt-7 space-y-7">
-          <section
-            className="border-t border-gray-200 pt-5 dark:border-ui-border"
-            aria-labelledby={`${titleId}-videos`}
-          >
-            <div className="mb-3">
-              <h3
-                id={`${titleId}-videos`}
-                className="text-base font-semibold text-gray-900 dark:text-ui-text"
-              >
-                {zh('关联视频', 'Related videos')}
-              </h3>
+        <div
+          ref={restoreScroll}
+          onScroll={(event) => {
+            if (!restoringScrollRef.current) onScrollChange?.(event.currentTarget.scrollTop)
+          }}
+          className="min-h-0 flex-1 overflow-y-auto p-4 [overflow-anchor:none] sm:p-6"
+        >
+          <div className="grid items-stretch gap-6 lg:grid-cols-[minmax(0,3fr)_minmax(19rem,2fr)]">
+            <div className="group relative aspect-[800/538] w-full overflow-hidden rounded-lg border border-gray-200 bg-gray-50 shadow-sm dark:border-ui-border dark:bg-ui-canvas">
+              {cover ? (
+                <img
+                  src={cover}
+                  alt={code || zh('JAV 封面', 'JAV cover')}
+                  className="h-full w-full object-contain object-top"
+                />
+              ) : (
+                <span className="flex h-full items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200 text-lg font-semibold text-gray-500 dark:from-ui-muted dark:to-ui-hover dark:text-ui-faint">
+                  {code || zh('暂无封面', 'No cover')}
+                </span>
+              )}
+              {canPlay ? (
+                <button
+                  type="button"
+                  className="absolute left-1/2 top-1/2 z-[1] flex h-20 w-20 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-black/65 text-white opacity-0 shadow-lg transition hover:bg-black/80 focus-visible:opacity-100 group-hover:opacity-100"
+                  onClick={onPlay}
+                  aria-label={zh('播放', 'Play')}
+                >
+                  <PlayArrowIcon sx={{ fontSize: 54 }} />
+                </button>
+              ) : null}
             </div>
-            {videos.length > 0 ? (
-              <VideoGrid
-                videos={videos}
-                selectedIds={emptyVideoSelection}
-                onToggleSelect={() => {}}
-                showSelection={false}
-                onPlay={onVideoPlay}
-                onOpenFile={onVideoOpenFile}
-                onRevealFile={onVideoRevealFile}
-                openFileLabel={openFileLabel}
-                onOpenTagPicker={onVideoOpenTagPicker}
-                showTagEditor
-                onOpenScreenshots={onVideoOpenScreenshots}
-                onOpenScrapeSettings={onVideoOpenScrapeSettings}
-                onRenameVideo={onVideoRename}
-                onDeleteVideo={onVideoDelete}
-                onTagClick={onVideoTagClick}
-              />
-            ) : (
-              <div className="flex min-h-28 items-center justify-center rounded-lg border border-dashed border-gray-200 text-xs text-gray-500 dark:border-ui-border dark:text-ui-faint">
-                {zh('暂无关联视频', 'No related videos')}
-              </div>
-            )}
-          </section>
 
-          {sampleImagesLoading || sampleImagesError || sampleImages.length > 0 ? (
+            <div className="flex min-w-0 flex-col gap-5">
+              <dl className="overflow-hidden rounded-lg border border-gray-200 bg-white dark:border-ui-border dark:bg-ui-surface">
+                {detailRows.map((row, index) => (
+                  <div
+                    key={row.label}
+                    className={`grid grid-cols-[5.5rem_minmax(0,1fr)] gap-3 px-4 py-2.5 text-sm ${
+                      index > 0 ? 'border-t border-gray-100 dark:border-ui-border' : ''
+                    }`}
+                  >
+                    <dt className="font-medium text-gray-500 dark:text-ui-faint">{row.label}</dt>
+                    <dd className="min-w-0 break-words text-gray-800 dark:text-ui-text">
+                      {row.content}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+
+              {femaleIdols.length > 0 || code ? (
+                <section aria-label={zh('女优', 'Actresses')}>
+                  <div className="mb-2 flex items-center gap-2">
+                    <h3 className="text-sm font-semibold text-gray-800 dark:text-ui-text">
+                      {zh('女优', 'Actresses')}
+                    </h3>
+                    {code ? (
+                      <Tooltip
+                        title={zh('按番号查询女优并回填资料', 'Look up actresses by code and fill')}
+                      >
+                        <button
+                          type="button"
+                          className="rounded border border-purple-300 bg-purple-50 px-2 py-0.5 text-[11px] font-medium text-purple-700 transition hover:bg-purple-100 dark:border-purple-800 dark:bg-purple-950 dark:text-purple-300 dark:hover:bg-purple-900"
+                          onClick={() => setActressLookupOpen(true)}
+                          aria-label={zh('番号查女优', 'Look up actresses by code')}
+                        >
+                          {zh('番号查女优', 'Look up by code')}
+                        </button>
+                      </Tooltip>
+                    ) : null}
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {femaleIdols.length === 0 ? (
+                      <span className="text-xs text-gray-500 dark:text-ui-faint">
+                        {zh(
+                          '暂无女优，可用「番号查女优」补齐',
+                          'No actresses yet; use the lookup above'
+                        )}
+                      </span>
+                    ) : null}
+                    {femaleIdols.map((idol) => (
+                      <a
+                        key={idol?.id || idol?.name}
+                        href={buildIdolUrl?.(idol) || '#'}
+                        onClick={(event) => handleFilterClick(event, onSelectIdol, idol)}
+                        className="rounded-full border border-purple-200 bg-purple-50 px-3 py-1 text-xs font-medium text-purple-700 transition hover:border-purple-300 hover:bg-purple-100 dark:border-purple-800 dark:bg-purple-950 dark:text-purple-300 dark:hover:border-purple-400 dark:hover:bg-purple-900"
+                        onMouseEnter={(event) => handleHoverStart('idol', idol, event)}
+                        onMouseLeave={scheduleHoverClose}
+                      >
+                        {getIdolDisplayName(idol, preferChineseName)}
+                      </a>
+                    ))}
+                  </div>
+                </section>
+              ) : null}
+
+              {maleIdols.length > 0 ? (
+                <section aria-label={zh('男优', 'Actors')}>
+                  <h3 className="mb-2 text-sm font-semibold text-gray-800 dark:text-ui-text">
+                    {zh('男优', 'Actors')}
+                  </h3>
+                  <div className="flex flex-wrap gap-2">
+                    {maleIdols.map((actor) => (
+                      <a
+                        key={actor?.id || actor?.name}
+                        href={buildIdolUrl?.(actor) || '#'}
+                        onClick={(event) => handleFilterClick(event, onSelectIdol, actor)}
+                        className="rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-xs font-medium text-sky-700 transition hover:border-sky-300 hover:bg-sky-100 dark:border-sky-800 dark:bg-sky-950 dark:text-sky-300 dark:hover:border-sky-400 dark:hover:bg-sky-900"
+                        onMouseEnter={(event) => handleHoverStart('idol', actor, event)}
+                        onMouseLeave={scheduleHoverClose}
+                      >
+                        {getIdolDisplayName(actor, preferChineseName)}
+                      </a>
+                    ))}
+                  </div>
+                </section>
+              ) : null}
+
+              {tags.length > 0 ? (
+                <section aria-label={zh('标签', 'Tags')}>
+                  <h3 className="mb-2 text-sm font-semibold text-gray-800 dark:text-ui-text">
+                    {zh('标签', 'Tags')}
+                  </h3>
+                  <div className="flex flex-wrap gap-2">
+                    {tags.map((tag) => {
+                      const isUser = isUserJavTag(tag)
+                      return (
+                        <a
+                          key={`${tag?.id || tag?.name}-${tag?.provider || 0}`}
+                          href={buildTagUrl?.(tag) || '#'}
+                          onClick={(event) => handleFilterClick(event, onSelectTag, tag)}
+                          className={`rounded px-2.5 py-1 text-xs font-medium transition ${
+                            isUser
+                              ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200 dark:bg-emerald-900 dark:text-emerald-300 dark:hover:bg-emerald-900'
+                              : 'bg-orange-100 text-orange-700 hover:bg-orange-200 dark:bg-orange-900 dark:text-orange-300 dark:hover:bg-orange-900'
+                          }`}
+                        >
+                          {tag?.name}
+                        </a>
+                      )
+                    })}
+                  </div>
+                </section>
+              ) : null}
+
+              {externalLinks.length > 0 ? (
+                <section aria-label={zh('外部链接', 'External links')}>
+                  <h3 className="mb-2 text-sm font-semibold text-gray-800 dark:text-ui-text">
+                    {zh('外部链接', 'External links')}
+                  </h3>
+                  <div className="flex flex-wrap gap-2">
+                    {externalLinks.map((site) => (
+                      <a
+                        key={site.key}
+                        href={site.href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 rounded border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-700 transition hover:border-gray-300 hover:bg-gray-50 dark:border-ui-border dark:bg-ui-surface dark:text-ui-secondary dark:hover:border-ui-faint dark:hover:bg-ui-hover"
+                        onClick={site.onClick}
+                      >
+                        <img
+                          src={site.icon}
+                          alt=""
+                          className={`h-4 w-4 ${site.loading ? 'animate-pulse' : ''}`}
+                          loading="lazy"
+                        />
+                        <span>{site.name}</span>
+                      </a>
+                    ))}
+                  </div>
+                </section>
+              ) : null}
+
+              <section className="mt-auto pt-1" aria-label={zh('操作', 'Actions')}>
+                <h3 className="mb-2 text-sm font-semibold text-gray-800 dark:text-ui-text">
+                  {zh('操作栏', 'Actions')}
+                </h3>
+                <div className="group flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-1.5 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:border-gray-400 hover:bg-gray-50 dark:border-ui-border dark:bg-ui-surface dark:text-ui-secondary dark:hover:border-ui-faint dark:hover:bg-ui-hover"
+                    onClick={onOpenFavorites}
+                  >
+                    {favoriteCount > 0 ? (
+                      <StarRoundedIcon className="text-amber-500" sx={{ fontSize: 16 }} />
+                    ) : (
+                      <StarBorderRoundedIcon sx={{ fontSize: 16 }} />
+                    )}
+                    {zh('收藏', 'Favorite')}
+                  </button>
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-1.5 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:border-gray-400 hover:bg-gray-50 dark:border-ui-border dark:bg-ui-surface dark:text-ui-secondary dark:hover:border-ui-faint dark:hover:bg-ui-hover"
+                    onClick={onEdit}
+                  >
+                    <MovieEdit sx={{ fontSize: 16 }} />
+                    {zh('编辑', 'Edit')}
+                  </button>
+                  <JavFavoriteRatingEditor
+                    value={favoriteRating}
+                    saving={favoriteRatingSaving}
+                    error={favoriteRatingError}
+                    onChange={onFavoriteRatingChange}
+                  />
+                </div>
+              </section>
+            </div>
+          </div>
+
+          <div className="mt-7 space-y-7">
             <section
               className="border-t border-gray-200 pt-5 dark:border-ui-border"
-              aria-labelledby={`${titleId}-sample-images`}
+              aria-labelledby={`${titleId}-videos`}
             >
-              <h3
-                id={`${titleId}-sample-images`}
-                className="mb-3 text-base font-semibold text-gray-900 dark:text-ui-text"
-              >
-                {zh('样品图像', 'Sample images')}
-              </h3>
-              {sampleImagesLoading ? (
-                <div className="flex min-h-28 items-center justify-center rounded-lg border border-dashed border-gray-200 text-xs text-gray-500 dark:border-ui-border dark:text-ui-faint">
-                  {zh('正在加载样品图像…', 'Loading sample images...')}
-                </div>
-              ) : sampleImages.length > 0 ? (
-                <JavSampleImageGrid images={sampleImages} itemId={itemId} />
+              <div className="mb-3">
+                <h3
+                  id={`${titleId}-videos`}
+                  className="text-base font-semibold text-gray-900 dark:text-ui-text"
+                >
+                  {zh('关联视频', 'Related videos')}
+                </h3>
+              </div>
+              {videos.length > 0 ? (
+                <VideoGrid
+                  videos={videos}
+                  selectedIds={emptyVideoSelection}
+                  onToggleSelect={() => {}}
+                  showSelection={false}
+                  onPlay={onVideoPlay}
+                  onOpenFile={onVideoOpenFile}
+                  onRevealFile={onVideoRevealFile}
+                  openFileLabel={openFileLabel}
+                  onOpenTagPicker={onVideoOpenTagPicker}
+                  showTagEditor
+                  onOpenScreenshots={onVideoOpenScreenshots}
+                  onOpenScrapeSettings={onVideoOpenScrapeSettings}
+                  onRenameVideo={onVideoRename}
+                  onDeleteVideo={onVideoDelete}
+                  onTagClick={onVideoTagClick}
+                />
               ) : (
-                <div className="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-300">
-                  {sampleImagesError}
+                <div className="flex min-h-28 items-center justify-center rounded-lg border border-dashed border-gray-200 text-xs text-gray-500 dark:border-ui-border dark:text-ui-faint">
+                  {zh('暂无关联视频', 'No related videos')}
                 </div>
               )}
             </section>
-          ) : null}
 
-          <section
-            className="border-t border-gray-200 pt-5 dark:border-ui-border"
-            aria-labelledby={`${titleId}-screenshots`}
-          >
-            <h3
-              id={`${titleId}-screenshots`}
-              className="mb-3 text-base font-semibold text-gray-900 dark:text-ui-text"
+            {sampleImagesLoading || sampleImagesError || sampleImages.length > 0 ? (
+              <section
+                className="border-t border-gray-200 pt-5 dark:border-ui-border"
+                aria-labelledby={`${titleId}-sample-images`}
+              >
+                <h3
+                  id={`${titleId}-sample-images`}
+                  className="mb-3 text-base font-semibold text-gray-900 dark:text-ui-text"
+                >
+                  {zh('样品图像', 'Sample images')}
+                </h3>
+                {sampleImagesLoading ? (
+                  <div className="flex min-h-28 items-center justify-center rounded-lg border border-dashed border-gray-200 text-xs text-gray-500 dark:border-ui-border dark:text-ui-faint">
+                    {zh('正在加载样品图像…', 'Loading sample images...')}
+                  </div>
+                ) : sampleImages.length > 0 ? (
+                  <JavSampleImageGrid images={sampleImages} itemId={itemId} />
+                ) : (
+                  <div className="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-300">
+                    {sampleImagesError}
+                  </div>
+                )}
+              </section>
+            ) : null}
+
+            <section
+              className="border-t border-gray-200 pt-5 dark:border-ui-border"
+              aria-labelledby={`${titleId}-screenshots`}
             >
-              {zh('视频截图', 'Video screenshots')}
-            </h3>
-            <JavScreenshotGrid
-              videos={videos}
-              onPlayAtTime={onVideoPlayAtTime}
-              onCoverChanged={onVideoCoverChanged}
-            />
-          </section>
+              <h3
+                id={`${titleId}-screenshots`}
+                className="mb-3 text-base font-semibold text-gray-900 dark:text-ui-text"
+              >
+                {zh('视频截图', 'Video screenshots')}
+              </h3>
+              <JavScreenshotGrid
+                videos={videos}
+                onPlayAtTime={onVideoPlayAtTime}
+                onCoverChanged={onVideoCoverChanged}
+              />
+            </section>
+          </div>
         </div>
-      </div>
 
-      <Popper
-        open={Boolean(hoverPreview?.item && hoverPreview?.anchorEl)}
-        anchorEl={hoverPreview?.anchorEl || null}
-        placement="right-start"
-        className="z-[1550]"
-        modifiers={[{ name: 'offset', options: { offset: [10, 0] } }]}
-      >
-        <div
-          className={
-            hoverPreview?.type === 'studio'
-              ? 'w-[320px]'
-              : hoverPreview?.type === 'series'
-                ? 'w-[260px]'
-                : 'w-[220px]'
-          }
-          onMouseEnter={clearHoverCloseTimer}
-          onMouseLeave={scheduleHoverClose}
+        <Popper
+          open={Boolean(hoverPreview?.item && hoverPreview?.anchorEl)}
+          anchorEl={hoverPreview?.anchorEl || null}
+          placement="right-start"
+          className="z-[1550]"
+          modifiers={[{ name: 'offset', options: { offset: [10, 0] } }]}
         >
-          {hoverPreview?.type === 'studio' ? (
-            <StudioCard
-              item={hoverPreview.item}
-              href={buildStudioUrl?.(hoverPreview.item)}
-              onSelectStudio={onSelectStudio}
-              onSelectSeries={onSelectSeries}
-              onSelectPrefix={onSelectPrefix}
-              onOpenFavorites={onOpenStudioFavorites}
-              buildSeriesUrl={buildSeriesUrl}
-              onOpenSeriesFavorites={onOpenSeriesFavorites}
-              previewZIndex={1599}
-            />
-          ) : null}
-          {hoverPreview?.type === 'series' ? (
-            <SeriesCard
-              item={hoverPreview.item}
-              onUpdated={onSeriesPreviewUpdated}
-              href={buildSeriesUrl?.(hoverPreview.item)}
-              onSelectSeries={onSelectSeries}
-              onSelectStudio={onSelectStudio}
-              onOpenFavorites={onOpenSeriesFavorites}
-            />
-          ) : null}
-          {hoverPreview?.type === 'idol' ? (
-            <IdolCard
-              gender={actorGenderOf(undefined, hoverPreview.item)}
-              item={hoverPreview.item}
-              onSelectIdol={onSelectIdol}
-              onOpenFavorites={onOpenIdolFavorites}
-              onOpenCoverEditor={onOpenIdolCoverEditor}
-              onOpenEditor={onOpenIdolEditor}
-              href={buildIdolUrl?.(hoverPreview.item)}
-              coverAspectPercent={coverAspectPercent}
-              showWorkCount={
-                typeof hoverPreview.item?.work_count === 'number' &&
-                hoverPreview.item.work_count > 0
-              }
-              preferChineseName={preferChineseName}
-            />
-          ) : null}
-        </div>
-      </Popper>
-    </AppModal>
+          <div
+            className={
+              hoverPreview?.type === 'studio'
+                ? 'w-[320px]'
+                : hoverPreview?.type === 'series'
+                  ? 'w-[260px]'
+                  : 'w-[220px]'
+            }
+            onMouseEnter={clearHoverCloseTimer}
+            onMouseLeave={scheduleHoverClose}
+          >
+            {hoverPreview?.type === 'studio' ? (
+              <StudioCard
+                item={hoverPreview.item}
+                href={buildStudioUrl?.(hoverPreview.item)}
+                onSelectStudio={onSelectStudio}
+                onSelectSeries={onSelectSeries}
+                onSelectPrefix={onSelectPrefix}
+                onOpenFavorites={onOpenStudioFavorites}
+                buildSeriesUrl={buildSeriesUrl}
+                onOpenSeriesFavorites={onOpenSeriesFavorites}
+                previewZIndex={1599}
+              />
+            ) : null}
+            {hoverPreview?.type === 'series' ? (
+              <SeriesCard
+                item={hoverPreview.item}
+                onUpdated={onSeriesPreviewUpdated}
+                href={buildSeriesUrl?.(hoverPreview.item)}
+                onSelectSeries={onSelectSeries}
+                onSelectStudio={onSelectStudio}
+                onOpenFavorites={onOpenSeriesFavorites}
+              />
+            ) : null}
+            {hoverPreview?.type === 'idol' ? (
+              <IdolCard
+                gender={actorGenderOf(undefined, hoverPreview.item)}
+                item={hoverPreview.item}
+                onSelectIdol={onSelectIdol}
+                onOpenFavorites={onOpenIdolFavorites}
+                onOpenCoverEditor={onOpenIdolCoverEditor}
+                onOpenEditor={onOpenIdolEditor}
+                href={buildIdolUrl?.(hoverPreview.item)}
+                coverAspectPercent={coverAspectPercent}
+                showWorkCount={
+                  typeof hoverPreview.item?.work_count === 'number' &&
+                  hoverPreview.item.work_count > 0
+                }
+                preferChineseName={preferChineseName}
+              />
+            ) : null}
+          </div>
+        </Popper>
+      </AppModal>
+      <ActressLookupModal
+        open={actressLookupOpen}
+        code={code}
+        javId={itemId}
+        currentIdolNames={femaleIdols.map((idol) => getIdolDisplayName(idol, preferChineseName))}
+        onClose={() => setActressLookupOpen(false)}
+        onFilled={(updated) => {
+          if (updated) useStore.getState().patchJavItem(updated)
+        }}
+      />
+    </>
   )
 }

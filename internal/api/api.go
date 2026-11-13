@@ -183,6 +183,12 @@ func RegisterRoutes(router gin.IRoutes) {
 	router.GET("/jav/idols/:id", getJavIdol)
 	router.DELETE("/jav/idols/:id", deleteJavIdol)
 
+	// Actress lookup by work code and profile fill. The lookup reads the credit
+	// list of the work page; the fill writes a scraped profile onto an idol.
+	router.GET("/jav/actress-lookup", lookupJavActressesByCode)
+	router.GET("/jav/actress-profile", getJavActressProfile)
+	router.POST("/jav/actress-fill", fillJavActressProfile)
+
 	// Male actors share the jav_idol table and the same handlers, but are
 	// addressed through dedicated routes so a female endpoint can never create,
 	// list, edit or delete a male actor by accident.

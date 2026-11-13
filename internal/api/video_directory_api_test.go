@@ -44,6 +44,15 @@ func TestVideoDirectoryFilter(t *testing.T) {
 	if err := database.Create(&jav).Error; err != nil {
 		t.Fatal(err)
 	}
+	// Videos carry no tag library of their own: a tag filter matches the tags of
+	// the JAV work a video location is linked to.
+	javTag := models.JavTag{Name: "chosen", IsUser: true}
+	if err := database.Create(&javTag).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := database.Create(&models.JavTagMap{JavID: jav.ID, JavTagID: javTag.ID}).Error; err != nil {
+		t.Fatal(err)
+	}
 	for i, row := range []struct {
 		root           int
 		path           string
@@ -107,8 +116,9 @@ func TestVideoDirectoryFilter(t *testing.T) {
 		{"missing", 0, "missing", nil, 0, 0},
 		{"literal wildcards", 0, "100%_fun", nil, 1, 1},
 		{"case sensitive", 0, "Case", nil, 1, 1},
-		{"tag intersection", 0, "旅行", url.Values{"tags": {"chosen"}}, 2, 2},
-		{"hide linked", 0, "旅行", url.Values{"tags": {"chosen"}, "hide_jav": {"1"}}, 1, 1},
+		// Only the linked video can match a JAV tag, so the intersection is 1.
+		{"tag intersection", 0, "旅行", url.Values{"tags": {"chosen"}}, 1, 1},
+		{"hide linked", 0, "旅行", url.Values{"tags": {"chosen"}, "hide_jav": {"1"}}, 0, 0},
 		{"search", 0, "旅行", url.Values{"search": {"b.mp4"}}, 1, 1},
 		{"pagination", 0, "旅行", url.Values{"limit": {"1"}, "offset": {"1"}}, 3, 1},
 		{"random", 0, "旅行", url.Values{"sort": {"random"}, "seed": {"42"}}, 3, 3},

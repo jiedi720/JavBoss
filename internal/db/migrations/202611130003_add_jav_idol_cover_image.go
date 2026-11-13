@@ -19,5 +19,5 @@ func init() {
 // cover instead of borrowing one from a work. The column holds the cover file
 // code (without extension); an empty value preserves the old work-based cover.
 func addJavIdolCoverImage(ctx context.Context, tx *sql.Tx) error {
-	return addColumnIfMissing(ctx, tx, "jav_idol", "cover_image", "text NOT NULL DEFAULT ''")
+	return addColumnIfMissing(ctx, tx, "jav_idol", "cover_image", "text NOT NULL DEFAULT \"\"")
 }

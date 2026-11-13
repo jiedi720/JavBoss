@@ -29,6 +29,9 @@ type ActressInfo struct {
 	BirthDate    int
 	Cup          int
 	ProfileURL   string
+	// Aliases holds former or alternate names reported by the provider. They are
+	// only informational here; the caller decides whether to persist them.
+	Aliases []string
 }
 
 // SampleImage contains the thumbnail and full-size URLs for a movie sample image.

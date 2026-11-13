@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"strings"
+
+	"javboss/internal/jav/scrape/avwiki"
 )
 
 // LookupJavByCode queries the default client.
@@ -211,4 +213,33 @@ func FetchJavBusGenreCategories(ctx context.Context) ([]JavBusGenreCategory, err
 		return nil, ErrUnsupportedOperation
 	}
 	return lookup.FetchGenreCategories(ctx)
+}
+
+// LookupActressRefsByCode lists the actresses credited on a work. AV Wiki is the
+// only provider exposing the credit list of a work page, so the call is scoped to
+// that provider instead of going through the generic metadata interface.
+func LookupActressRefsByCode(ctx context.Context, code string) ([]avwiki.ActressRef, error) {
+	return defaultMetadataClient.LookupActressRefsByCode(ctx, code)
+}
+
+func (c *MetadataClient) LookupActressRefsByCode(ctx context.Context, code string) ([]avwiki.ActressRef, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	implementation, err := c.providerFor(ProviderAVWiki)
+	if err != nil {
+		return nil, err
+	}
+	client, ok := implementation.(*avwiki.AVWikiClient)
+	if !ok {
+		return nil, ErrUnsupportedOperation
+	}
+	refs, err := client.LookupActressesByCode(ctx, code)
+	if err != nil {
+		return nil, err
+	}
+	if len(refs) == 0 {
+		return nil, ErrNotFound
+	}
+	return refs, nil
 }

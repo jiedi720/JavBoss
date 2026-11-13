@@ -349,6 +349,21 @@ func finalizeMinnanoAVActressInfo(name, profileURL string, info *metadata.Actres
 	info.JapaneseName = parsedName
 	info.RomanName = strings.Join(strings.Fields(info.RomanName), " ")
 	info.ProfileURL = profileURL
+	if len(aliases) > 0 {
+		seen := make(map[string]bool, len(aliases))
+		kept := make([]string, 0, len(aliases))
+		for _, alias := range aliases {
+			alias = normalizeMinnanoAVName(alias)
+			if alias == "" || alias == info.JapaneseName || seen[alias] {
+				continue
+			}
+			seen[alias] = true
+			kept = append(kept, alias)
+		}
+		if len(kept) > 0 {
+			info.Aliases = kept
+		}
+	}
 	return info, nil
 }
 
