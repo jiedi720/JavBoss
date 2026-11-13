@@ -79,7 +79,7 @@ export function TagCollapseToggleButton({
 }
 
 export function IdolTagList({
-  idols,
+  idols: rawIdols,
   maxRows,
   compact = false,
   preferChineseName = false,
@@ -89,6 +89,15 @@ export function IdolTagList({
   onIdolHoverStart,
   onIdolHoverEnd,
 }) {
+  // Actresses always lead: stable-sort females ahead of males so a mixed cast
+  // never renders a male actor before an actress. Sorting is stable, so the
+  // existing order inside each gender group is preserved.
+  const idols = useMemo(() => {
+    if (!Array.isArray(rawIdols)) return []
+    return [...rawIdols].sort(
+      (a, b) => Number(isMaleActor(a?.gender)) - Number(isMaleActor(b?.gender))
+    )
+  }, [rawIdols])
   const tagSizeClassName = compact ? 'px-1.5 py-0.5 text-[11px] leading-4' : 'px-2 py-1 text-xs'
   const gapClassName = compact ? 'gap-0.5' : 'gap-1'
   const toggleSizeClassName = compact
