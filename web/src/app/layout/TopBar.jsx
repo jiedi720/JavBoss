@@ -603,7 +603,7 @@ export default function TopBar({
             />
           ) : null}
 
-          {isJavMode && isActorListTab(javTab) ? (
+          {isJavMode && javTab === 'idol' ? (
             <IdolProfileFilters
               filters={idolProfileFilters}
               onChange={onIdolProfileFilterChange}

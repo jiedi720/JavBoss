@@ -3,8 +3,16 @@ package api
 import (
 	"context"
 	"errors"
+	"fmt"
+	"image"
+	_ "image/jpeg"
+	_ "image/png"
+	"io"
 	"math"
+	"mime/multipart"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -354,6 +362,182 @@ func updateJavIdolCover(c *gin.Context) {
 	c.JSON(http.StatusOK, items[0])
 }
 
+// javIdolCoverCode is the cover file code for an actor's own uploaded or
+// URL-downloaded cover. It lives in the shared JAV cover directory so the
+// existing /jav/:code/cover endpoint serves it without extra plumbing.
+func javIdolCoverCode(id int64) string {
+	return fmt.Sprintf("idol-%d", id)
+}
+
+const maxActorCoverBytes = 12 << 20
+
+// actorCoverExt maps an upload to an extension the cover package can decode.
+// WebP is rejected because the package only registers JPEG and PNG decoders.
+func actorCoverExt(filename, contentType string) string {
+	ct := strings.ToLower(strings.TrimSpace(contentType))
+	switch {
+	case strings.Contains(ct, "png"):
+		return ".png"
+	case strings.Contains(ct, "jpeg"), strings.Contains(ct, "jpg"):
+		return ".jpg"
+	}
+	switch strings.ToLower(filepath.Ext(filename)) {
+	case ".png":
+		return ".png"
+	case ".jpg", ".jpeg":
+		return ".jpg"
+	}
+	return ""
+}
+
+func removeActorCoverVariants(coverDir, code, keepExt string) {
+	for _, ext := range []string{".jpg", ".jpeg", ".png", ".webp"} {
+		if ext == keepExt {
+			continue
+		}
+		_ = os.Remove(filepath.Join(coverDir, code+ext))
+	}
+}
+
+// saveActorCoverFile validates an uploaded image and stores it as <code><ext>
+// so that cover.FindPath resolves it on the next request.
+func saveActorCoverFile(coverDir, code string, file *multipart.FileHeader) error {
+	ext := actorCoverExt(file.Filename, file.Header.Get("Content-Type"))
+	if ext == "" {
+		return errors.New("unsupported image type")
+	}
+	src, err := file.Open()
+	if err != nil {
+		return err
+	}
+	defer src.Close()
+
+	if err := os.MkdirAll(coverDir, 0o755); err != nil {
+		return err
+	}
+	tmp, err := os.CreateTemp(coverDir, "actor-cover-*.tmp")
+	if err != nil {
+		return err
+	}
+	tmpName := tmp.Name()
+	defer os.Remove(tmpName)
+	if _, err := io.Copy(tmp, src); err != nil {
+		tmp.Close()
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		return err
+	}
+
+	decoded, err := os.Open(tmpName)
+	if err != nil {
+		return err
+	}
+	img, _, decodeErr := image.Decode(decoded)
+	decoded.Close()
+	if decodeErr != nil || img.Bounds().Empty() {
+		return errors.New("invalid image")
+	}
+
+	dst := filepath.Join(coverDir, code+ext)
+	removeActorCoverVariants(coverDir, code, "")
+	if err := os.Rename(tmpName, dst); err != nil {
+		return err
+	}
+	return nil
+}
+
+func actorCoverID(c *gin.Context) (int64, bool) {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil || id <= 0 {
+		respondActorError(c, http.StatusBadRequest, "%s ID 无效", "Invalid %s ID")
+		return 0, false
+	}
+	return id, true
+}
+
+func respondActorCoverSaved(c *gin.Context, id int64, code string) {
+	item, err := dbpkg.Default().SetJavIdolCoverImage(c.Request.Context(), id, code)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			respondActorError(c, http.StatusNotFound, "%s不存在", "%s was not found")
+			return
+		}
+		logging.Error("save jav actor cover id=%d: %v", id, err)
+		respondActorError(c, http.StatusInternalServerError, "保存%s封面失败", "Failed to save %s cover")
+		return
+	}
+	items := []dbpkg.JavIdolSummary{*item}
+	enrichJavIdolSummaries(c.Request.Context(), items)
+	c.JSON(http.StatusOK, items[0])
+}
+
+// uploadJavIdolCover stores an image picked from the local disk as the actor
+// cover, mirroring the URL based flow but without any network access.
+func uploadJavIdolCover(c *gin.Context) {
+	id, ok := actorCoverID(c)
+	if !ok {
+		return
+	}
+	if !requireActorGender(c, id, actorGender(c)) {
+		return
+	}
+	cfg := common.CurrentConfig()
+	if cfg == nil {
+		respondLocalizedError(c, http.StatusInternalServerError, "应用配置尚未加载", "Application configuration is not loaded")
+		return
+	}
+	file, err := c.FormFile("file")
+	if err != nil {
+		respondLocalizedError(c, http.StatusBadRequest, "请选择要上传的封面图片", "Choose a cover image to upload")
+		return
+	}
+	if file.Size <= 0 || file.Size > maxActorCoverBytes {
+		respondLocalizedError(c, http.StatusBadRequest, "封面图片需小于 12MB", "The cover image must be smaller than 12MB")
+		return
+	}
+	code := javIdolCoverCode(id)
+	if err := saveActorCoverFile(cfg.JavCoverDir, code, file); err != nil {
+		logging.Error("upload jav actor cover id=%d: %v", id, err)
+		respondLocalizedError(c, http.StatusBadRequest, "保存封面图片失败，请上传 JPG 或 PNG 图片", "Failed to save the cover image; upload a JPG or PNG")
+		return
+	}
+	respondActorCoverSaved(c, id, code)
+}
+
+// updateJavIdolCoverURL downloads an image URL into the local cover directory
+// and points the actor at it, matching the JAV edit "cover URL" behaviour.
+func updateJavIdolCoverURL(c *gin.Context) {
+	id, ok := actorCoverID(c)
+	if !ok {
+		return
+	}
+	if !requireActorGender(c, id, actorGender(c)) {
+		return
+	}
+	cfg := common.CurrentConfig()
+	if cfg == nil {
+		respondLocalizedError(c, http.StatusInternalServerError, "应用配置尚未加载", "Application configuration is not loaded")
+		return
+	}
+	var req struct {
+		URL string `json:"url"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		respondActorError(c, http.StatusBadRequest, "更新%s封面请求无效", "Invalid %s cover update request")
+		return
+	}
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 45*time.Second)
+	defer cancel()
+	code := javIdolCoverCode(id)
+	if err := cover.DownloadFromURL(ctx, cfg.JavCoverDir, code, req.URL); err != nil {
+		logging.Error("download jav actor cover id=%d: %v", id, err)
+		respondLocalizedError(c, http.StatusBadRequest, "下载封面失败，请检查图片地址（仅支持 JPG/PNG）", "Failed to download the cover; check the image URL (JPG/PNG only)")
+		return
+	}
+	respondActorCoverSaved(c, id, code)
+}
+
 func getJavIdol(c *gin.Context) {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil || id <= 0 {
@@ -418,6 +602,13 @@ func enrichJavIdolSummary(ctx context.Context, item *dbpkg.JavIdolSummary, cover
 	item.JapaneseName = strings.TrimSpace(item.JapaneseName)
 	item.ChineseName = strings.TrimSpace(item.ChineseName)
 	item.CoverCode = strings.TrimSpace(item.CoverCode)
+
+	// A cover the user uploaded or downloaded from a URL wins over any
+	// work-derived cover so the card shows exactly what the user picked.
+	if item.CoverImage != "" {
+		item.CoverCode = item.CoverImage
+		return
+	}
 
 	// The summary only supplies a cover for a manual selection or a solo work.
 	// Keep it empty when neither is available instead of falling back to group works.

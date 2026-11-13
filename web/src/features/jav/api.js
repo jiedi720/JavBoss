@@ -653,6 +653,31 @@ export async function updateJavIdolCover(
   return res.json()
 }
 
+export async function uploadJavIdolCover(id, file, gender = ACTOR_GENDER_FEMALE) {
+  const form = new FormData()
+  form.append('file', file)
+  const res = await apiFetch(`${javActorBase(gender)}/${encodeURIComponent(id)}/cover/upload`, {
+    method: 'PUT',
+    body: form,
+  })
+  if (!res.ok) {
+    throw await apiError(res)
+  }
+  return res.json()
+}
+
+export async function updateJavIdolCoverURL(id, url, gender = ACTOR_GENDER_FEMALE) {
+  const res = await apiFetch(`${javActorBase(gender)}/${encodeURIComponent(id)}/cover/url`, {
+    method: 'PUT',
+    headers: jsonHeaders,
+    body: JSON.stringify({ url }),
+  })
+  if (!res.ok) {
+    throw await apiError(res)
+  }
+  return res.json()
+}
+
 export async function fetchJavStudios({
   limit = 25,
   offset = 0,

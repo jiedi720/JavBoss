@@ -171,6 +171,10 @@ type JavIdol struct {
 	UpdatedAt     time.Time  `json:"updated_at"`
 	CoverJavID    *int64     `json:"cover_jav_id" gorm:"index"`
 	CoverCropLeft float64    `json:"cover_crop_left" gorm:"not null;default:0.53"`
+	// CoverImage stores the local cover file code (for example "idol-12") of a
+	// cover uploaded or downloaded from a user supplied URL. An empty value
+	// keeps the existing behaviour of deriving the cover from a work code.
+	CoverImage string `json:"cover_image" gorm:"not null;default:''"`
 }
 
 type JavIdolAlias struct {

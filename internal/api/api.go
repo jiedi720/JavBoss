@@ -176,6 +176,8 @@ func RegisterRoutes(router gin.IRoutes) {
 	router.PATCH("/jav/idols/:id", updateJavIdol)
 	router.GET("/jav/idols/:id/cover-options", listJavIdolCoverOptions)
 	router.PUT("/jav/idols/:id/cover", updateJavIdolCover)
+	router.PUT("/jav/idols/:id/cover/upload", uploadJavIdolCover)
+	router.PUT("/jav/idols/:id/cover/url", updateJavIdolCoverURL)
 	router.GET("/jav/idols/:id", getJavIdol)
 	router.DELETE("/jav/idols/:id", deleteJavIdol)
 
@@ -192,6 +194,8 @@ func RegisterRoutes(router gin.IRoutes) {
 	router.DELETE("/jav/actors/:id", maleActor, deleteJavIdol)
 	router.GET("/jav/actors/:id/cover-options", maleActor, listJavIdolCoverOptions)
 	router.PUT("/jav/actors/:id/cover", maleActor, updateJavIdolCover)
+	router.PUT("/jav/actors/:id/cover/upload", maleActor, uploadJavIdolCover)
+	router.PUT("/jav/actors/:id/cover/url", maleActor, updateJavIdolCoverURL)
 	router.GET("/jav/actors/:id", maleActor, getJavIdol)
 }
 

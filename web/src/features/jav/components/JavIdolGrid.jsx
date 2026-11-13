@@ -575,55 +575,61 @@ export function JavIdolEditModal({
               value={form.chinese_name}
               onChange={(value) => setField('chinese_name', value)}
             />
-            <TextField
-              label={zh('身高', 'Height')}
-              value={form.height_cm}
-              type="number"
-              min="1"
-              onChange={(value) => setField('height_cm', value)}
-            />
+            {!terms.male && (
+              <TextField
+                label={zh('身高', 'Height')}
+                value={form.height_cm}
+                type="number"
+                min="1"
+                onChange={(value) => setField('height_cm', value)}
+              />
+            )}
             <TextField
               label={zh('生日', 'Birth date')}
               value={form.birth_date}
               type="date"
               onChange={(value) => setField('birth_date', value)}
             />
-            <TextField
-              label={zh('胸围', 'Bust')}
-              value={form.bust}
-              type="number"
-              min="1"
-              onChange={(value) => setField('bust', value)}
-            />
-            <TextField
-              label={zh('腰围', 'Waist')}
-              value={form.waist}
-              type="number"
-              min="1"
-              onChange={(value) => setField('waist', value)}
-            />
-            <TextField
-              label={zh('臀围', 'Hips')}
-              value={form.hips}
-              type="number"
-              min="1"
-              onChange={(value) => setField('hips', value)}
-            />
-            <label className="flex flex-col gap-1 text-sm font-medium text-gray-700 dark:text-ui-secondary">
-              <span>{zh('罩杯', 'Cup')}</span>
-              <select
-                value={form.cup}
-                onChange={(event) => setField('cup', event.target.value)}
-                className="form-field rounded border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-gray-900"
-              >
-                <option value="">{zh('未设置', 'Unset')}</option>
-                {Array.from({ length: 26 }, (_, index) => index + 1).map((value) => (
-                  <option key={value} value={String(value)}>
-                    {String.fromCharCode(64 + value)}
-                  </option>
-                ))}
-              </select>
-            </label>
+            {!terms.male && (
+              <>
+                <TextField
+                  label={zh('胸围', 'Bust')}
+                  value={form.bust}
+                  type="number"
+                  min="1"
+                  onChange={(value) => setField('bust', value)}
+                />
+                <TextField
+                  label={zh('腰围', 'Waist')}
+                  value={form.waist}
+                  type="number"
+                  min="1"
+                  onChange={(value) => setField('waist', value)}
+                />
+                <TextField
+                  label={zh('臀围', 'Hips')}
+                  value={form.hips}
+                  type="number"
+                  min="1"
+                  onChange={(value) => setField('hips', value)}
+                />
+                <label className="flex flex-col gap-1 text-sm font-medium text-gray-700 dark:text-ui-secondary">
+                  <span>{zh('罩杯', 'Cup')}</span>
+                  <select
+                    value={form.cup}
+                    onChange={(event) => setField('cup', event.target.value)}
+                    className="form-field rounded border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-gray-900"
+                  >
+                    <option value="">{zh('未设置', 'Unset')}</option>
+                    {Array.from({ length: 26 }, (_, index) => index + 1).map((value) => (
+                      <option key={value} value={String(value)}>
+                        {String.fromCharCode(64 + value)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </>
+            )}
           </div>
 
           <AliasEditor

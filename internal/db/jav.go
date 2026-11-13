@@ -2072,7 +2072,10 @@ type JavIdolSummary struct {
 	CoverJavID    *int64     `json:"cover_jav_id"`
 	CoverCode     string     `json:"cover_code"`
 	CoverCropLeft float64    `json:"cover_crop_left"`
-	FavoriteCount int64      `json:"favorite_count"`
+	// CoverImage mirrors models.JavIdol.CoverImage so the frontend can tell a
+	// custom uploaded/downloaded cover apart from one borrowed from a work.
+	CoverImage    string `json:"cover_image"`
+	FavoriteCount int64  `json:"favorite_count"`
 }
 
 // JavIdolIntRange is an inclusive numeric range used by idol profile filters.
@@ -2185,7 +2188,7 @@ func (store *Store) GetJavIdolSummary(ctx context.Context, idolID int64, directo
 	}
 	tx := store.conn.WithContext(ctx).
 		Table("jav_idol ji").
-		Select("ji.id, ji.gender, ji.name, ji.roman_name, ji.japanese_name, ji.chinese_name, ji.height_cm, ji.birth_date, ji.bust, ji.waist, ji.hips, ji.cup, COALESCE(idol_work_counts.work_count, 0) AS work_count, ji.cover_jav_id, COALESCE(NULLIF(cover_jav.code, ''), solo_idols.cover_code) AS cover_code, COALESCE(ji.cover_crop_left, 0.53) AS cover_crop_left, COALESCE(favorite_counts.favorite_count, 0) AS favorite_count").
+		Select("ji.id, ji.gender, ji.name, ji.roman_name, ji.japanese_name, ji.chinese_name, ji.height_cm, ji.birth_date, ji.bust, ji.waist, ji.hips, ji.cup, COALESCE(idol_work_counts.work_count, 0) AS work_count, ji.cover_jav_id, ji.cover_image, COALESCE(NULLIF(cover_jav.code, ''), solo_idols.cover_code) AS cover_code, COALESCE(ji.cover_crop_left, 0.53) AS cover_crop_left, COALESCE(favorite_counts.favorite_count, 0) AS favorite_count").
 		Joins("LEFT JOIN (?) idol_work_counts ON idol_work_counts.jav_idol_id = ji.id", store.buildVisibleIdolWorkCountQuery(ctx, directoryIDs)).
 		Joins("LEFT JOIN (?) solo_idols ON solo_idols.jav_idol_id = ji.id", store.buildVisibleSoloIdolCoverQuery(ctx, directoryIDs, actorGender)).
 		Joins("LEFT JOIN jav cover_jav ON cover_jav.id = ji.cover_jav_id").
@@ -2337,8 +2340,8 @@ func (store *Store) ListJavIdols(ctx context.Context, search, sort string, limit
 	base = applyJavIdolFilters(base, filters, filterDate)
 	if err := base.
 		Joins("LEFT JOIN jav cover_jav ON cover_jav.id = ji.cover_jav_id").
-		Select("ji.id, ji.gender, ji.name, ji.roman_name, ji.japanese_name, ji.chinese_name, ji.height_cm, ji.birth_date, ji.bust, ji.waist, ji.hips, ji.cup, COUNT(DISTINCT j.id) AS work_count, ji.cover_jav_id, COALESCE(NULLIF(cover_jav.code, ''), solo_idols.cover_code) AS cover_code, COALESCE(ji.cover_crop_left, 0.53) AS cover_crop_left, COALESCE(favorite_counts.favorite_count, 0) AS favorite_count").
-		Group("ji.id, ji.gender, ji.name, ji.roman_name, ji.japanese_name, ji.chinese_name, ji.height_cm, ji.birth_date, ji.bust, ji.waist, ji.hips, ji.cup, ji.cover_jav_id, cover_jav.code, ji.cover_crop_left, solo_idols.cover_code, favorite_counts.favorite_count").
+		Select("ji.id, ji.gender, ji.name, ji.roman_name, ji.japanese_name, ji.chinese_name, ji.height_cm, ji.birth_date, ji.bust, ji.waist, ji.hips, ji.cup, COUNT(DISTINCT j.id) AS work_count, ji.cover_jav_id, ji.cover_image, COALESCE(NULLIF(cover_jav.code, ''), solo_idols.cover_code) AS cover_code, COALESCE(ji.cover_crop_left, 0.53) AS cover_crop_left, COALESCE(favorite_counts.favorite_count, 0) AS favorite_count").
+		Group("ji.id, ji.gender, ji.name, ji.roman_name, ji.japanese_name, ji.chinese_name, ji.height_cm, ji.birth_date, ji.bust, ji.waist, ji.hips, ji.cup, ji.cover_jav_id, ji.cover_image, cover_jav.code, ji.cover_crop_left, solo_idols.cover_code, favorite_counts.favorite_count").
 		Order(order).
 		Limit(limit).
 		Offset(offset).
@@ -2435,7 +2438,7 @@ func (store *Store) listMaleJavIdols(ctx context.Context, search, sort string, l
 
 	var items []JavIdolSummary
 	if err := base.
-		Select("ji.id, ji.gender, ji.name, ji.roman_name, ji.japanese_name, ji.chinese_name, ji.height_cm, ji.birth_date, ji.bust, ji.waist, ji.hips, ji.cup, COALESCE(work_counts.work_count, 0) AS work_count, ji.cover_jav_id, COALESCE(NULLIF(cover_jav.code, ''), solo_idols.cover_code) AS cover_code, COALESCE(ji.cover_crop_left, 0.53) AS cover_crop_left, COALESCE(favorite_counts.favorite_count, 0) AS favorite_count").
+		Select("ji.id, ji.gender, ji.name, ji.roman_name, ji.japanese_name, ji.chinese_name, ji.height_cm, ji.birth_date, ji.bust, ji.waist, ji.hips, ji.cup, COALESCE(work_counts.work_count, 0) AS work_count, ji.cover_jav_id, ji.cover_image, COALESCE(NULLIF(cover_jav.code, ''), solo_idols.cover_code) AS cover_code, COALESCE(ji.cover_crop_left, 0.53) AS cover_crop_left, COALESCE(favorite_counts.favorite_count, 0) AS favorite_count").
 		Order(order).
 		Limit(limit).
 		Offset(offset).
@@ -2799,6 +2802,29 @@ func (store *Store) UpdateJavIdolCoverSelection(ctx context.Context, idolID, jav
 	}
 
 	return store.GetJavIdolSummary(ctx, idolID, directoryIDs)
+}
+
+// SetJavIdolCoverImage points an actor at a locally stored cover file code
+// (for example "idol-12"). The cover file lives in the shared JAV cover
+// directory, so the existing /jav/:code/cover endpoint serves it unchanged.
+// Passing an empty code restores the work-derived cover.
+func (store *Store) SetJavIdolCoverImage(ctx context.Context, idolID int64, code string) (*JavIdolSummary, error) {
+	if idolID <= 0 {
+		return nil, errors.New("idol id must be positive")
+	}
+	code = strings.TrimSpace(code)
+
+	res := store.conn.WithContext(ctx).
+		Model(&models.JavIdol{}).
+		Where("id = ?", idolID).
+		Update("cover_image", code)
+	if res.Error != nil {
+		return nil, fmt.Errorf("update jav idol cover image: %w", res.Error)
+	}
+	if res.RowsAffected == 0 {
+		return nil, gorm.ErrRecordNotFound
+	}
+	return store.GetJavIdolSummary(ctx, idolID, nil)
 }
 
 func normalizeCoverCropLeft(value float64) float64 {
