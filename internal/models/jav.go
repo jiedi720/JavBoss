@@ -156,6 +156,7 @@ type JavTagCategory struct {
 
 type JavIdol struct {
 	ID            int64      `json:"id" gorm:"primaryKey"`
+	Gender        string     `json:"gender" gorm:"not null;default:female;index"`
 	Name          string     `json:"name" gorm:"uniqueIndex"`
 	RomanName     string     `json:"roman_name"`
 	JapaneseName  string     `json:"japanese_name"`
