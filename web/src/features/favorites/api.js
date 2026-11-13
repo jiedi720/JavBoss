@@ -5,6 +5,7 @@ export const JAV_FAVORITE_ENTITY_ROUTES = {
   idol: 'idol',
   studio: 'studio',
   series: 'series',
+  video: 'video',
 }
 
 export function javFavoriteEntityRoute(entityType = 'idol') {

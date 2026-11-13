@@ -47,6 +47,7 @@ func RegisterRoutes(router gin.IRoutes) {
 	router.POST("/videos/:id/screenshots", createVideoScreenshot)
 	router.GET("/videos/:id/screenshots/:name", getVideoScreenshot)
 	router.PUT("/videos/:id/screenshots/:name", uploadVideoScreenshot)
+	router.PATCH("/videos/:id/favorite-rating", updateVideoFavoriteRating)
 	router.PATCH("/videos/:id/jav-scrape", updateVideoJavScrapeSettings)
 	router.GET("/videos/:id/jav-scrape/possible-codes", getVideoJavScrapePossibleCodes)
 	router.GET("/videos/:id/jav-scrape/lookup", lookupVideoJavScrape)
@@ -167,6 +168,7 @@ func RegisterRoutes(router gin.IRoutes) {
 	registerJavFavoriteRoutes(router, "idol", dbFavoriteEntityIdol)
 	registerJavFavoriteRoutes(router, "studio", dbFavoriteEntityStudio)
 	registerJavFavoriteRoutes(router, "series", dbFavoriteEntitySeries)
+	registerVideoFavoriteRoutes(router)
 	router.GET("/jav/idols", listJavIdols)
 	router.POST("/jav/idols", createJavIdol)
 	router.GET("/jav/idols/options", listJavIdolOptions)
@@ -204,6 +206,7 @@ const (
 	dbFavoriteEntityIdol   = "idol"
 	dbFavoriteEntityStudio = "studio"
 	dbFavoriteEntitySeries = "series"
+	dbFavoriteEntityVideo  = "video"
 )
 
 func registerJavFavoriteRoutes(router gin.IRoutes, routeEntity string, dbEntity string) {
@@ -229,6 +232,23 @@ func registerJavFavoriteRoutes(router gin.IRoutes, routeEntity string, dbEntity 
 	}
 	router.GET("/jav/"+routeEntity+"s/:id/favorite-groups", listJavFavoriteGroupIDsFor(dbEntity))
 	router.PUT("/jav/"+routeEntity+"s/:id/favorite-groups", replaceJavFavoriteGroupsFor(dbEntity))
+}
+
+// registerVideoFavoriteRoutes exposes the same favourite-group API shape for
+// videos. Groups live under entity_type=video, so they never mix with the JAV,
+// actor, studio or series groups.
+func registerVideoFavoriteRoutes(router gin.IRoutes) {
+	const base = "/jav/video-favorite-groups"
+	router.GET(base, listJavFavoriteGroupsFor(dbFavoriteEntityVideo))
+	router.POST(base, createJavFavoriteGroupFor(dbFavoriteEntityVideo))
+	router.PUT(base+"/order", reorderJavFavoriteGroupsFor(dbFavoriteEntityVideo))
+	router.PATCH(base+"/:id", renameJavFavoriteGroupFor(dbFavoriteEntityVideo))
+	router.DELETE(base+"/:id", deleteJavFavoriteGroupFor(dbFavoriteEntityVideo))
+	router.GET(base+"/:id/items", listJavFavoriteGroupItemsFor(dbFavoriteEntityVideo))
+	router.PUT(base+"/:id/item-order", reorderJavFavoriteGroupItemsFor(dbFavoriteEntityVideo))
+	router.POST(base+"/:id/items/remove", removeJavFavoriteGroupItemsFor(dbFavoriteEntityVideo))
+	router.GET("/jav/videos/:id/favorite-groups", listJavFavoriteGroupIDsFor(dbFavoriteEntityVideo))
+	router.PUT("/jav/videos/:id/favorite-groups", replaceJavFavoriteGroupsFor(dbFavoriteEntityVideo))
 }
 
 func handleHealth(c *gin.Context) {

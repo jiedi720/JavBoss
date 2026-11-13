@@ -117,7 +117,45 @@ func (store *Store) ListVideos(ctx context.Context, limit, offset int, tagNames 
 		}
 		videos = append(videos, videoFromLocation(loc))
 	}
+	store.fillVideoFavoriteCounts(ctx, videos)
 	return videos, nil
+}
+
+// fillVideoFavoriteCounts attaches how many video favourite groups each video
+// belongs to, so the card can show the starred state like JAV cards do.
+func (store *Store) fillVideoFavoriteCounts(ctx context.Context, videos []models.Video) {
+	if len(videos) == 0 {
+		return
+	}
+	ids := make([]int64, 0, len(videos))
+	for _, video := range videos {
+		if video.ID > 0 {
+			ids = append(ids, video.ID)
+		}
+	}
+	if len(ids) == 0 {
+		return
+	}
+	type row struct {
+		EntityID int64 `gorm:"column:entity_id"`
+		Count    int64 `gorm:"column:count"`
+	}
+	var rows []row
+	if err := store.conn.WithContext(ctx).
+		Table("jav_favorite_map").
+		Select("entity_id, COUNT(*) AS count").
+		Where("entity_type = ? AND entity_id IN ?", JavFavoriteEntityVideo, ids).
+		Group("entity_id").
+		Scan(&rows).Error; err != nil {
+		return
+	}
+	counts := make(map[int64]int64, len(rows))
+	for _, item := range rows {
+		counts[item.EntityID] = item.Count
+	}
+	for i := range videos {
+		videos[i].FavoriteCount = counts[videos[i].ID]
+	}
 }
 
 // CountVideos returns the total number of active locations that match optional filters.
@@ -183,6 +221,27 @@ func (store *Store) CountVideos(ctx context.Context, tagNames []string, search s
 		return 0, fmt.Errorf("count videos (filtered): %w", err)
 	}
 	return count, nil
+}
+
+// UpdateVideoFavoriteRating stores the per-video favourite rating (0-5 stars).
+// Videos keep their own rating; it is never shared with the linked JAV work.
+func (store *Store) UpdateVideoFavoriteRating(ctx context.Context, videoID int64, rating float64) (*models.Video, error) {
+	if videoID <= 0 {
+		return nil, fmt.Errorf("video id must be positive")
+	}
+	if rating < 0 {
+		rating = 0
+	}
+	if rating > 5 {
+		rating = 5
+	}
+	if err := store.conn.WithContext(ctx).
+		Model(&models.Video{}).
+		Where("id = ?", videoID).
+		Update("favorite_rating", rating).Error; err != nil {
+		return nil, fmt.Errorf("update video favorite rating: %w", err)
+	}
+	return store.GetVideo(ctx, videoID)
 }
 
 func videoFromLocation(loc models.VideoLocation) models.Video {

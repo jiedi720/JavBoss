@@ -200,3 +200,15 @@ export async function fetchVideoDirectories({ signal } = {}) {
       }))
     : []
 }
+
+export async function updateVideoFavoriteRating(id, rating) {
+  const res = await apiFetch(`/videos/${encodeURIComponent(id)}/favorite-rating`, {
+    method: 'PATCH',
+    headers: jsonHeaders,
+    body: JSON.stringify({ rating }),
+  })
+  if (!res.ok) {
+    throw await apiError(res)
+  }
+  return res.json()
+}

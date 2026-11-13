@@ -18,6 +18,7 @@ const (
 	JavFavoriteEntityIdol   = "idol"
 	JavFavoriteEntityStudio = "studio"
 	JavFavoriteEntitySeries = "series"
+	JavFavoriteEntityVideo  = "video"
 )
 
 // JavFavoriteGroupSummary represents a favorite group with a visible item count.
@@ -147,6 +148,8 @@ func normalizeJavFavoriteEntityType(entityType string) (string, error) {
 		return JavFavoriteEntityStudio, nil
 	case JavFavoriteEntitySeries:
 		return JavFavoriteEntitySeries, nil
+	case JavFavoriteEntityVideo, "videos", "file", "files":
+		return JavFavoriteEntityVideo, nil
 	default:
 		return "", errors.New("invalid favorite entity type")
 	}
@@ -238,6 +241,13 @@ func (store *Store) ListJavFavoriteGroups(ctx context.Context, entityType string
 			Joins("LEFT JOIN jav_studio js ON js.id = jfm.entity_id").
 			Joins("LEFT JOIN jav j ON j.studio_id = js.id").
 			Joins("LEFT JOIN video_location vl ON vl.jav_id = j.id").
+			Joins("LEFT JOIN directory d ON d.id = vl.directory_id")
+	case JavFavoriteEntityVideo:
+		query = query.
+			Select("jfg.id, jfg.entity_type, jfg.name, jfg.sort_order, COUNT(DISTINCT CASE WHEN v.id IS NOT NULL AND vl.id IS NOT NULL AND d.id IS NOT NULL AND "+activeDirectoryWhereSQL("d")+directoryFilterSQL("vl", directoryIDs)+" THEN v.id END) AS count").
+			Joins("LEFT JOIN jav_favorite_map jfm ON jfm.jav_favorite_group_id = jfg.id AND jfm.entity_type = ?", entityType).
+			Joins("LEFT JOIN video v ON v.id = jfm.entity_id").
+			Joins("LEFT JOIN video_location vl ON vl.video_id = v.id").
 			Joins("LEFT JOIN directory d ON d.id = vl.directory_id")
 	case JavFavoriteEntitySeries:
 		query = query.
@@ -392,6 +402,8 @@ func validateJavFavoriteEntityTx(tx *gorm.DB, entityType string, entityID int64)
 		err = tx.Model(&models.JavSeries{}).
 			Where("id = ? AND is_english = ?", entityID, false).
 			Count(&count).Error
+	case JavFavoriteEntityVideo:
+		err = tx.Model(&models.Video{}).Where("id = ?", entityID).Count(&count).Error
 	default:
 		return errors.New("invalid favorite entity type")
 	}
@@ -561,6 +573,15 @@ func (store *Store) ListJavFavoriteGroupItems(ctx context.Context, entityType st
 			Joins("JOIN directory d ON d.id = vl.directory_id").
 			Where(activeDirectoryWhereSQL("d")).
 			Group("jfm.sort_order, js.id, js.name")
+		query = applyDirectoryFilter(query, "vl", directoryIDs)
+	case JavFavoriteEntityVideo:
+		query = query.
+			Select("'video' AS entity_type, v.id, vl.filename AS name, vl.filename AS code").
+			Joins("JOIN video v ON v.id = jfm.entity_id").
+			Joins("JOIN video_location vl ON vl.video_id = v.id").
+			Joins("JOIN directory d ON d.id = vl.directory_id").
+			Where(activeDirectoryWhereSQL("d")).
+			Group("jfm.sort_order, v.id, vl.filename")
 		query = applyDirectoryFilter(query, "vl", directoryIDs)
 	}
 

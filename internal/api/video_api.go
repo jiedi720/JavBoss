@@ -73,6 +73,33 @@ func listVideos(c *gin.Context) {
 	})
 }
 
+// updateVideoFavoriteRating updates the per-video favourite rating.
+func updateVideoFavoriteRating(c *gin.Context) {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil || id <= 0 {
+		respondLocalizedError(c, http.StatusBadRequest, "视频 ID 无效", "Invalid video ID")
+		return
+	}
+	var req struct {
+		Rating *float64 `json:"rating"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil || req.Rating == nil {
+		respondLocalizedError(c, http.StatusBadRequest, "喜爱度无效", "Invalid rating")
+		return
+	}
+	video, err := dbpkg.Default().UpdateVideoFavoriteRating(c.Request.Context(), id, *req.Rating)
+	if err != nil {
+		logging.Error("update video favorite rating id=%d: %v", id, err)
+		respondLocalizedError(c, http.StatusInternalServerError, "保存喜爱度失败", "Failed to save the rating")
+		return
+	}
+	if video == nil {
+		respondLocalizedError(c, http.StatusNotFound, "视频不存在", "Video does not exist")
+		return
+	}
+	c.JSON(http.StatusOK, video)
+}
+
 func getVideo(c *gin.Context) {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {

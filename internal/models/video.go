@@ -19,6 +19,8 @@ type Video struct {
 	JavScrapeOverride   string          `json:"jav_scrape_override"`
 	CoverScreenshotName string          `json:"cover_screenshot_name"`
 	WatchedMS           int64           `json:"watched_ms" gorm:"not null;default:0"`
+	FavoriteRating      float64         `json:"favorite_rating" gorm:"not null;default:0"`
+	FavoriteCount       int64           `json:"favorite_count" gorm:"-"`
 	Tags                []Tag           `json:"tags,omitempty" gorm:"many2many:video_tag"`
 	JavID               *int64          `json:"jav_id" gorm:"-"`
 	Jav                 *Jav            `json:"jav,omitempty" gorm:"-"`
