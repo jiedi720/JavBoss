@@ -1,6 +1,7 @@
 .gocache/
 .updates/
 data/
+testdata/
 /cache/
 docker-data/
 *.db
