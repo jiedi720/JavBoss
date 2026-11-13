@@ -1,5 +1,5 @@
 import Tooltip from '@/shared/ui/Tooltip'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Popover } from '@mui/material'
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
 import DriveFileRenameOutlineIcon from '@mui/icons-material/DriveFileRenameOutline'
@@ -25,6 +25,10 @@ import VideoThumbnail from '@/features/video/components/VideoThumbnail'
 import { Rating } from '@mui/material'
 import StarBorderRoundedIcon from '@mui/icons-material/StarBorderRounded'
 import StarRoundedIcon from '@mui/icons-material/StarRounded'
+import FavoriteRoundedIcon from '@mui/icons-material/FavoriteRounded'
+import FavoriteBorderRoundedIcon from '@mui/icons-material/FavoriteBorderRounded'
+import RemoveCircleOutlineRoundedIcon from '@mui/icons-material/RemoveCircleOutlineRounded'
+import { getErrorMessage } from '@/utils/errors'
 import JavFavoriteModal from '@/features/favorites/components/JavFavoriteModal'
 import {
   createJavFavoriteGroup,
@@ -54,7 +58,18 @@ export default function VideoCard({
   onTagClick,
 }) {
   const useHostPaths = useStore((state) => hostPathsEnabled(state.config))
-  const [rating, setRating] = useState(Number(video?.favorite_rating) || 0)
+  const itemFavoriteRating = Number(video?.favorite_rating) || 0
+  const [favoriteRating, setFavoriteRating] = useState(itemFavoriteRating)
+  const [favoriteRatingSaving, setFavoriteRatingSaving] = useState(false)
+  const [favoriteRatingError, setFavoriteRatingError] = useState('')
+  const [favoriteRatingEditing, setFavoriteRatingEditing] = useState(false)
+  const [favoriteRatingPreview, setFavoriteRatingPreview] = useState(null)
+  const favoriteRatingIconSize = 21
+  const favoriteRatingTooltipValue = favoriteRatingPreview ?? favoriteRating
+  const hasFavoriteRatingTooltipValue = favoriteRatingPreview !== null || favoriteRating > 0
+  const favoriteRatingWidth = !favoriteRatingEditing
+    ? Math.max(favoriteRating > 0 ? 1 : 0, 1) * 21
+    : 5 * 21
   const [favoriteCount, setFavoriteCount] = useState(Number(video?.favorite_count) || 0)
   const [favoritesOpen, setFavoritesOpen] = useState(false)
   const [favoriteGroups, setFavoriteGroups] = useState([])
@@ -63,15 +78,40 @@ export default function VideoCard({
   const [favoriteSaving, setFavoriteSaving] = useState(false)
   const [favoriteError, setFavoriteError] = useState('')
 
-  const handleRatingChange = async (_event, value) => {
-    const next = Number(value) || 0
-    const previous = rating
-    setRating(next)
+  useEffect(() => {
+    setFavoriteRating(itemFavoriteRating)
+  }, [video?.id, itemFavoriteRating])
+
+  // Mirrors the JAV card: hearts in the cover's top-left, half-star precision,
+  // save immediately on change and roll back when the request fails.
+  const handleFavoriteRatingChange = async (event, value) => {
+    event?.stopPropagation()
+    const videoID = Number(video?.id)
+    const numericValue = value == null ? 0 : Number(value)
+    const nextRating = Math.round(numericValue * 2) / 2
+    if (
+      favoriteRatingSaving ||
+      !Number.isFinite(videoID) ||
+      videoID <= 0 ||
+      !Number.isFinite(nextRating) ||
+      nextRating < 0 ||
+      nextRating > 5
+    ) {
+      return
+    }
+    const previousRating = favoriteRating
+    setFavoriteRating(nextRating)
+    setFavoriteRatingSaving(true)
+    setFavoriteRatingError('')
     try {
-      await updateVideoFavoriteRating(video.id, next)
-    } catch (err) {
-      setRating(previous)
-      console.warn('update video favorite rating failed', err)
+      const updated = await updateVideoFavoriteRating(videoID, nextRating)
+      const savedRating = Number(updated?.favorite_rating)
+      setFavoriteRating(Number.isFinite(savedRating) ? savedRating : nextRating)
+    } catch (error) {
+      setFavoriteRating(previousRating)
+      setFavoriteRatingError(getErrorMessage(error))
+    } finally {
+      setFavoriteRatingSaving(false)
     }
   }
 
@@ -228,31 +268,138 @@ export default function VideoCard({
         }`}
       >
         <div className="card-hover-scope video-card-cover group/cover relative aspect-video w-full shrink-0 overflow-hidden bg-gray-200 dark:bg-ui-hover">
-          {showSelection ? (
-            <div className={`video-card-select ${checked ? 'is-visible' : ''}`}>
-              <input
-                id={inputId}
-                type="checkbox"
-                checked={checked}
-                onChange={onToggle}
-                className="video-select-check"
-                onClick={(e) => e.stopPropagation()}
-                onPointerUp={(e) => {
-                  e.currentTarget.blur()
-                }}
-                aria-label={zh(`选择 ${displayName}`, `Select ${displayName}`)}
-              />
-            </div>
-          ) : null}
           <VideoThumbnail
             src={thumbnailSrc}
             alt={displayName}
             className="h-full w-full object-cover"
             loading="lazy"
           />
+          <div
+            className="absolute left-2 top-2 z-10 flex items-center gap-1"
+            onMouseLeave={() => {
+              setFavoriteRatingEditing(false)
+              setFavoriteRatingPreview(null)
+            }}
+            onBlur={(event) => {
+              if (event.currentTarget.contains(event.relatedTarget)) return
+              setFavoriteRatingEditing(false)
+              setFavoriteRatingPreview(null)
+            }}
+          >
+            <Tooltip
+              title={
+                favoriteRatingError ||
+                (favoriteRatingPreview === 0
+                  ? zh('清空喜爱度', 'Clear favorite rating')
+                  : hasFavoriteRatingTooltipValue
+                    ? zh(
+                        `喜爱度：${favoriteRatingTooltipValue.toFixed(1)} 分`,
+                        `Favorite rating: ${favoriteRatingTooltipValue.toFixed(1)}`
+                      )
+                    : zh('设置喜爱度评分', 'Set favorite rating'))
+              }
+              placement="top"
+              arrow
+            >
+              <span
+                role="group"
+                aria-label={zh('喜爱度评分', 'Favorite rating')}
+                className={`flex items-center rounded-full bg-black/70 px-1.5 py-0.5 shadow-lg shadow-black/50 transition-opacity ${
+                  favoriteRatingSaving
+                    ? 'opacity-60'
+                    : favoriteRating > 0
+                      ? 'opacity-100'
+                      : 'card-hover-focus-visible opacity-0 group-hover/cover:opacity-100'
+                }`}
+              >
+                <span
+                  className="flex overflow-hidden transition-[width] duration-150"
+                  style={{ width: favoriteRatingWidth * (favoriteRatingIconSize / 21) }}
+                >
+                  <Rating
+                    name={`video-favorite-rating-${video?.id || 'unknown'}`}
+                    value={favoriteRating}
+                    precision={0.5}
+                    size="small"
+                    icon={<FavoriteRoundedIcon fontSize="inherit" />}
+                    emptyIcon={<FavoriteBorderRoundedIcon fontSize="inherit" />}
+                    disabled={favoriteRatingSaving || !video?.id}
+                    onChange={handleFavoriteRatingChange}
+                    onClick={(event) => event.stopPropagation()}
+                    onMouseDown={(event) => event.stopPropagation()}
+                    onMouseEnter={() => setFavoriteRatingEditing(true)}
+                    onFocus={() => setFavoriteRatingEditing(true)}
+                    onChangeActive={(_, value) =>
+                      setFavoriteRatingPreview(value >= 0.5 ? value : null)
+                    }
+                    sx={{
+                      flexShrink: 0,
+                      color: '#fbbf24',
+                      fontSize: favoriteRatingIconSize,
+                      '& .MuiRating-iconEmpty': {
+                        color: 'rgba(255,255,255,0.85)',
+                      },
+                    }}
+                  />
+                </span>
+                {favoriteRatingEditing && favoriteRating > 0 ? (
+                  <button
+                    type="button"
+                    className="ml-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-white transition hover:bg-white/20"
+                    disabled={favoriteRatingSaving || !video?.id}
+                    aria-label={zh('清除喜爱度评分', 'Clear favorite rating')}
+                    onMouseEnter={() => setFavoriteRatingPreview(0)}
+                    onMouseLeave={() => setFavoriteRatingPreview(null)}
+                    onMouseDown={(event) => event.stopPropagation()}
+                    onClick={(event) => handleFavoriteRatingChange(event, 0)}
+                  >
+                    <RemoveCircleOutlineRoundedIcon sx={{ fontSize: 15 }} />
+                  </button>
+                ) : null}
+                {favoriteRating > 0 && !favoriteRatingEditing ? (
+                  <span className="ml-1 shrink-0 text-xs font-semibold tabular-nums leading-none text-white">
+                    {favoriteRating.toFixed(1)}
+                  </span>
+                ) : null}
+              </span>
+            </Tooltip>
+            {showSelection ? (
+              <input
+                id={inputId}
+                type="checkbox"
+                checked={checked}
+                onChange={onToggle}
+                className={`video-select-check card-hover-focus-visible shrink-0 transition-opacity [@media(hover:none)]:opacity-100 ${
+                  checked ? 'opacity-100' : 'opacity-0 group-hover/cover:opacity-100'
+                }`}
+                onClick={(e) => e.stopPropagation()}
+                onPointerUp={(e) => {
+                  e.currentTarget.blur()
+                }}
+                aria-label={zh(`选择 ${displayName}`, `Select ${displayName}`)}
+              />
+            ) : null}
+          </div>
+          <button
+            type="button"
+            className={`card-modal-trigger card-hover-focus-visible absolute right-2 top-2 z-10 flex h-8 w-8 items-center justify-center rounded-full shadow-lg shadow-black/40 transition ${
+              favoriteCount > 0
+                ? 'bg-amber-400 text-amber-950 hover:bg-amber-300'
+                : 'bg-black/65 text-white opacity-0 hover:bg-black/80 group-hover/cover:opacity-100'
+            }`}
+            title={zh('视频收藏夹', 'Video favorite groups')}
+            aria-label={zh('视频收藏夹', 'Video favorite groups')}
+            onClick={handleOpenFavorites}
+          >
+            {favoriteCount > 0 ? (
+              <StarRoundedIcon sx={{ fontSize: 18 }} />
+            ) : (
+              <StarBorderRoundedIcon sx={{ fontSize: 18 }} />
+            )}
+          </button>
           {javCode ? (
             <div
-              className="absolute right-2 top-2 z-10 max-w-[calc(100%-1rem)] truncate rounded bg-black/70 px-2 py-1 text-xs text-white"
+              className="absolute right-12 top-2 z-10 max-w-[calc(100%-4.5rem)] truncate rounded bg-black/70 px-2 py-1 text-xs text-white"
               title={zh(`已刮削：${javCode}`, `Scraped: ${javCode}`)}
             >
               {zh(`已刮削 ${javCode}`, `Scraped ${javCode}`)}
@@ -369,31 +516,11 @@ export default function VideoCard({
         </div>
 
         <div className="p-3">
-          <div className="flex items-start gap-2">
-            <div
-              className="line-clamp-2 flex-1 text-[11px] font-medium leading-snug sm:text-xs"
-              title={displayName}
-            >
-              {displayName}
-            </div>
-            <Tooltip title={zh('视频收藏夹', 'Video favorite groups')}>
-              <button
-                type="button"
-                onClick={handleOpenFavorites}
-                aria-label={zh('视频收藏夹', 'Video favorite groups')}
-                className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full transition ${
-                  favoriteCount > 0
-                    ? 'text-amber-500 hover:text-amber-600'
-                    : 'text-gray-400 hover:text-gray-600 dark:text-ui-faint dark:hover:text-ui-secondary'
-                }`}
-              >
-                {favoriteCount > 0 ? (
-                  <StarRoundedIcon sx={{ fontSize: 16 }} />
-                ) : (
-                  <StarBorderRoundedIcon sx={{ fontSize: 16 }} />
-                )}
-              </button>
-            </Tooltip>
+          <div
+            className="line-clamp-2 text-[11px] font-medium leading-snug sm:text-xs"
+            title={displayName}
+          >
+            {displayName}
           </div>
           {videoPath ? (
             <div
@@ -436,16 +563,6 @@ export default function VideoCard({
               ) : null}
             </div>
             <WatchTimeIcons watchedMs={video?.watched_ms} entityType="videos" entityId={video.id} />
-          </div>
-          <div className="mt-1.5 flex items-center">
-            <Rating
-              value={rating}
-              precision={0.5}
-              size="small"
-              onChange={handleRatingChange}
-              sx={{ fontSize: 15 }}
-              aria-label={zh('喜爱度', 'Favorite rating')}
-            />
           </div>
           {video.tags?.length ? (
             <div className="mt-2 flex flex-wrap items-center gap-1">

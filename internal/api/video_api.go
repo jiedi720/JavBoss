@@ -42,6 +42,7 @@ func listVideos(c *gin.Context) {
 	search := strings.TrimSpace(c.Query("search"))
 	sort := strings.TrimSpace(c.Query("sort"))
 	hideJav := queryBool(c, "hide_jav", false)
+	favoriteGroupID := int64(queryInt(c, "favorite_group_id", 0))
 	seedParam := strings.TrimSpace(c.Query("seed"))
 	var seed *int64
 	if seedParam != "" {
@@ -53,14 +54,14 @@ func listVideos(c *gin.Context) {
 		seed = &parsed
 	}
 
-	videos, err := dbpkg.Default().ListVideos(c.Request.Context(), limit, offset, tagFilter, search, sort, seed, directoryIDs, dbpkg.VideoFilter{HideJav: hideJav, Subdirectory: subdirectory})
+	videos, err := dbpkg.Default().ListVideos(c.Request.Context(), limit, offset, tagFilter, search, sort, seed, directoryIDs, dbpkg.VideoFilter{HideJav: hideJav, Subdirectory: subdirectory, FavoriteGroupID: favoriteGroupID})
 	if err != nil {
 		logging.Error("list videos error: %v", err)
 		respondLocalizedError(c, http.StatusInternalServerError, "加载视频列表失败", "Failed to load videos")
 		return
 	}
 
-	total, err := dbpkg.Default().CountVideos(c.Request.Context(), tagFilter, search, directoryIDs, dbpkg.VideoFilter{HideJav: hideJav, Subdirectory: subdirectory})
+	total, err := dbpkg.Default().CountVideos(c.Request.Context(), tagFilter, search, directoryIDs, dbpkg.VideoFilter{HideJav: hideJav, Subdirectory: subdirectory, FavoriteGroupID: favoriteGroupID})
 	if err != nil {
 		logging.Error("count videos error: %v", err)
 		respondLocalizedError(c, http.StatusInternalServerError, "统计视频数量失败", "Failed to count videos")

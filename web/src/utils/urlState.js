@@ -90,6 +90,7 @@ export const parseUrlState = (searchString = window.location.search, options = {
     tagIds: parseIds(sp.get('tag_ids')),
     random: sp.get('random') === '1',
     seed: clampSeed(sp.get('seed')),
+    favoriteGroupId: parsePositiveInt(sp.get('favorite_group_id')),
   }
 
   const rawJavTab = sp.get('tab')
@@ -232,6 +233,9 @@ export const buildUrlFromState = (state, basePath = window.location.pathname) =>
   if (state.video.tagIds?.length) {
     sp.set('tag_ids', [...state.video.tagIds].sort((a, b) => a - b).join(','))
   }
+  if (state.video.favoriteGroupId) {
+    sp.set('favorite_group_id', String(state.video.favoriteGroupId))
+  }
   if (state.video.random) {
     sp.set('random', '1')
     if (state.video.seed) sp.set('seed', String(state.video.seed))
@@ -260,6 +264,7 @@ export const normalizeUrlStateFromStore = (store, tagsByName) => {
       tagIds: selectedIds,
       random: store.randomMode,
       seed: store.randomMode ? store.randomSeed : null,
+      favoriteGroupId: store.videoFavoriteGroupId || null,
     },
     jav: {
       tab:

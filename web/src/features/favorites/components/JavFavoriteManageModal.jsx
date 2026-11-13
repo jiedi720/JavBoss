@@ -598,6 +598,17 @@ function favoriteManageLabels(entityType) {
         itemMeta: (item) =>
           zh(`${Number(item?.work_count) || 0} 部`, `${Number(item?.work_count) || 0} works`),
       }
+    case 'video':
+      return {
+        entityType,
+        itemNameZh: '视频',
+        itemNameEn: 'videos',
+        manageTitle: zh('管理视频收藏夹', 'Manage video favorites'),
+        emptyItemsText: zh('该收藏夹暂无视频', 'No videos in this favorite'),
+        selectAria: zh('选择视频', 'Select video'),
+        groupMeta: (count) => zh(`${count} 个`, `${count} videos`),
+        itemMeta: () => '',
+      }
     case 'idol':
     default:
       return {
@@ -623,6 +634,10 @@ function favoriteItemLabel(entityType, item, preferChineseName, preferChinese, t
   if (entityType === 'jav') {
     const title = getJavDisplayTitle(item, translateTitle)
     return [...new Set([item?.code, title])].filter(Boolean).join(' ')
+  }
+  if (entityType === 'video') {
+    const name = String(item?.name || item?.code || '').trim()
+    return name || zh('未知视频', 'Unknown video')
   }
   const name = String(item?.name || '').trim()
   if (name) return name

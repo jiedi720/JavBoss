@@ -20,6 +20,7 @@ export default function useFavoriteGroups({
   isJavMode,
   saveScrollBeforeUrlStateChange,
   setJavSearchInput,
+  setSearchInput,
 }) {
   const {
     loadJavFavoriteGroups,
@@ -27,15 +28,18 @@ export default function useFavoriteGroups({
     loadJavIdols,
     loadJavStudios,
     loadJavSeries,
+    loadVideos,
     javTab,
     javFavoriteGroupId,
     studioFavoriteGroupId,
     seriesFavoriteGroupId,
     idolFavoriteGroupId,
+    videoFavoriteGroupId,
     setJavFavoriteGroupId,
     setStudioFavoriteGroupId,
     setSeriesFavoriteGroupId,
     setIdolFavoriteGroupId,
+    setVideoFavoriteGroupId,
     favoriteGroupsByType,
     favoriteGroupsLoadingByType,
     favoriteGroupsErrorByType,
@@ -46,15 +50,18 @@ export default function useFavoriteGroups({
       loadJavIdols: state.loadJavIdols,
       loadJavStudios: state.loadJavStudios,
       loadJavSeries: state.loadJavSeries,
+      loadVideos: state.loadVideos,
       javTab: state.javTab,
       javFavoriteGroupId: state.javFavoriteGroupId,
       studioFavoriteGroupId: state.studioFavoriteGroupId,
       seriesFavoriteGroupId: state.seriesFavoriteGroupId,
       idolFavoriteGroupId: state.idolFavoriteGroupId,
+      videoFavoriteGroupId: state.videoFavoriteGroupId,
       setJavFavoriteGroupId: state.setJavFavoriteGroupId,
       setStudioFavoriteGroupId: state.setStudioFavoriteGroupId,
       setSeriesFavoriteGroupId: state.setSeriesFavoriteGroupId,
       setIdolFavoriteGroupId: state.setIdolFavoriteGroupId,
+      setVideoFavoriteGroupId: state.setVideoFavoriteGroupId,
       favoriteGroupsByType: state.favoriteGroupsByType,
       favoriteGroupsLoadingByType: state.favoriteGroupsLoadingByType,
       favoriteGroupsErrorByType: state.favoriteGroupsErrorByType,
@@ -82,7 +89,9 @@ export default function useFavoriteGroups({
 
   const handleOpenFavoriteModal = useCallback(
     async (entityType, item) => {
-      const type = ['jav', 'idol', 'studio', 'series'].includes(entityType) ? entityType : 'idol'
+      const type = ['jav', 'idol', 'studio', 'series', 'video'].includes(entityType)
+        ? entityType
+        : 'idol'
       const id = Number(item?.id)
       if (!Number.isFinite(id) || id <= 0) return
       setFavoriteModalEntityType(type)
@@ -125,7 +134,9 @@ export default function useFavoriteGroups({
 
   const reloadFavoriteData = useCallback(
     async (entityType) => {
-      const type = ['jav', 'idol', 'studio', 'series'].includes(entityType) ? entityType : 'idol'
+      const type = ['jav', 'idol', 'studio', 'series', 'video'].includes(entityType)
+        ? entityType
+        : 'idol'
       useStore.getState().invalidateJavFavoriteCounts(type)
       const tabByType = { jav: 'list', idol: 'idol', studio: 'studio', series: 'series' }
       const reloadByType = {
@@ -133,8 +144,10 @@ export default function useFavoriteGroups({
         idol: loadJavIdols,
         studio: loadJavStudios,
         series: loadJavSeries,
+        video: loadVideos,
       }
-      const shouldReloadCurrentList = isJavMode && javTab === tabByType[type]
+      const shouldReloadCurrentList =
+        type === 'video' ? !isJavMode : isJavMode && javTab === tabByType[type]
       const reloadCurrentList = shouldReloadCurrentList ? reloadByType[type] : null
       await Promise.all([
         loadJavFavoriteGroups(type, { force: true }),
@@ -149,6 +162,7 @@ export default function useFavoriteGroups({
       loadJavSeries,
       loadJavStudios,
       loadJavs,
+      loadVideos,
     ]
   )
 
@@ -161,12 +175,20 @@ export default function useFavoriteGroups({
           return studioFavoriteGroupId
         case 'series':
           return seriesFavoriteGroupId
+        case 'video':
+          return videoFavoriteGroupId
         case 'idol':
         default:
           return idolFavoriteGroupId
       }
     },
-    [idolFavoriteGroupId, javFavoriteGroupId, seriesFavoriteGroupId, studioFavoriteGroupId]
+    [
+      idolFavoriteGroupId,
+      javFavoriteGroupId,
+      seriesFavoriteGroupId,
+      studioFavoriteGroupId,
+      videoFavoriteGroupId,
+    ]
   )
 
   const setActiveFavoriteGroupId = useCallback(
@@ -181,6 +203,9 @@ export default function useFavoriteGroups({
         case 'series':
           setSeriesFavoriteGroupId(groupId)
           break
+        case 'video':
+          setVideoFavoriteGroupId(groupId)
+          break
         case 'idol':
         default:
           setIdolFavoriteGroupId(groupId)
@@ -192,12 +217,15 @@ export default function useFavoriteGroups({
       setJavFavoriteGroupId,
       setSeriesFavoriteGroupId,
       setStudioFavoriteGroupId,
+      setVideoFavoriteGroupId,
     ]
   )
 
   const handleFavoriteGroupSelect = useCallback(
     (entityType, groupId) => {
-      const type = ['jav', 'idol', 'studio', 'series'].includes(entityType) ? entityType : 'idol'
+      const type = ['jav', 'idol', 'studio', 'series', 'video'].includes(entityType)
+        ? entityType
+        : 'idol'
       const parsedGroupId = Number(groupId)
       const nextGroupId = Number.isFinite(parsedGroupId) && parsedGroupId > 0 ? parsedGroupId : null
       const parsedCurrentGroupId = Number(activeFavoriteGroupId(type))
@@ -209,23 +237,37 @@ export default function useFavoriteGroups({
 
       saveScrollBeforeUrlStateChange()
       setJavSearchInput('')
-      useStore.setState({
-        javSearchTerm: '',
-        javIdolIds: [],
-        javTags: [],
-        javStudioId: null,
-        javStudioName: '',
-        javSeriesId: null,
-        javSeriesName: '',
-        javPrefix: '',
-        javSoloOnly: false,
-        javFavoriteRatingEnabled: false,
-        javFavoriteRatingMin: 0.5,
-        javFavoriteRatingMax: 5,
-        idolProfileFilters: createDefaultIdolProfileFilters(),
-        javRandomMode: false,
-        javRandomSeed: null,
-      })
+      setSearchInput?.('')
+      if (type === 'video') {
+        useStore.setState({
+          searchTerm: '',
+          selectedTags: [],
+          videoDirectoryId: null,
+          videoSubdirectory: '',
+          videoTempSort: '',
+          randomMode: false,
+          randomSeed: null,
+          page: 1,
+        })
+      } else {
+        useStore.setState({
+          javSearchTerm: '',
+          javIdolIds: [],
+          javTags: [],
+          javStudioId: null,
+          javStudioName: '',
+          javSeriesId: null,
+          javSeriesName: '',
+          javPrefix: '',
+          javSoloOnly: false,
+          javFavoriteRatingEnabled: false,
+          javFavoriteRatingMin: 0.5,
+          javFavoriteRatingMax: 5,
+          idolProfileFilters: createDefaultIdolProfileFilters(),
+          javRandomMode: false,
+          javRandomSeed: null,
+        })
+      }
       setActiveFavoriteGroupId(type, nextGroupId)
     },
     [
@@ -233,12 +275,15 @@ export default function useFavoriteGroups({
       saveScrollBeforeUrlStateChange,
       setActiveFavoriteGroupId,
       setJavSearchInput,
+      setSearchInput,
     ]
   )
 
   const patchFavoriteCountInCurrentList = useCallback(
     (entityType, entityID, groupIds) => {
-      const type = ['jav', 'idol', 'studio', 'series'].includes(entityType) ? entityType : 'idol'
+      const type = ['jav', 'idol', 'studio', 'series', 'video'].includes(entityType)
+        ? entityType
+        : 'idol'
       useStore
         .getState()
         .patchJavFavoriteCount(type, entityID, groupIds, activeFavoriteGroupId(type))
@@ -248,7 +293,9 @@ export default function useFavoriteGroups({
 
   const handleCreateFavoriteGroup = useCallback(
     async (name, entityType = favoriteModalEntityType) => {
-      const type = ['jav', 'idol', 'studio', 'series'].includes(entityType) ? entityType : 'idol'
+      const type = ['jav', 'idol', 'studio', 'series', 'video'].includes(entityType)
+        ? entityType
+        : 'idol'
       const group = await createJavFavoriteGroup(type, name)
       useStore.setState((state) => {
         const current = Array.isArray(state.favoriteGroupsByType?.[type])
@@ -366,8 +413,9 @@ export default function useFavoriteGroups({
     [favoriteManageEntityType, reloadFavoriteData]
   )
 
-  const activeFavoriteEntityType =
-    javTab === 'studio'
+  const activeFavoriteEntityType = !isJavMode
+    ? 'video'
+    : javTab === 'studio'
       ? 'studio'
       : javTab === 'series'
         ? 'series'

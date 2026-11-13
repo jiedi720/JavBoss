@@ -9,11 +9,13 @@ export function createFavoriteSlice({ set, get }) {
     javFavoriteRatingMax: 5,
     javFavoriteGroupId: null,
     idolFavoriteGroupId: null,
+    videoFavoriteGroupId: null,
     favoriteGroupsByType: {
       jav: [],
       idol: [],
       studio: [],
       series: [],
+      video: [],
     },
     favoriteGroupsLoadingByType: {},
     favoriteGroupsErrorByType: {},
@@ -39,7 +41,9 @@ export function createFavoriteSlice({ set, get }) {
             ? 'studioItems'
             : type === 'series'
               ? 'seriesItems'
-              : 'idolItems'
+              : type === 'video'
+                ? 'videos'
+                : 'idolItems'
       const totalKey =
         type === 'jav'
           ? 'javTotal'
@@ -47,7 +51,9 @@ export function createFavoriteSlice({ set, get }) {
             ? 'studioTotal'
             : type === 'series'
               ? 'seriesTotal'
-              : 'idolTotal'
+              : type === 'video'
+                ? 'total'
+                : 'idolTotal'
 
       set((state) => {
         // Details and previews need updates even when absent from the current list.
@@ -110,8 +116,21 @@ export function createFavoriteSlice({ set, get }) {
       const next = Number.isFinite(parsed) && parsed > 0 ? parsed : null
       set({ seriesFavoriteGroupId: next, seriesPage: 1 })
     },
+    setVideoFavoriteGroupId: (id) => {
+      const parsed = Number(id)
+      const next = Number.isFinite(parsed) && parsed > 0 ? parsed : null
+      set({
+        videoFavoriteGroupId: next,
+        page: 1,
+        videoTempSort: '',
+        randomMode: false,
+        randomSeed: null,
+      })
+    },
     loadJavFavoriteGroups: async (entityType = 'idol', options = {}) => {
-      const type = ['jav', 'idol', 'studio', 'series'].includes(entityType) ? entityType : 'idol'
+      const type = ['jav', 'idol', 'studio', 'series', 'video'].includes(entityType)
+        ? entityType
+        : 'idol'
       const key = `${type}-favorite-groups`
       if (!options.force && key === lastFavoriteGroupFetchKeys[type]) {
         return get().favoriteGroupsByType?.[type] || []

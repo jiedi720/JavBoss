@@ -353,7 +353,7 @@ body.has-page-scroll .sticky-pagination {
 
 .filter-search {
   display: flex;
-  width: clamp(8.5rem, 9.5vw, 10.5rem);
+  width: clamp(14rem, 18vw, 20rem);
   height: 36px;
   margin-left: -8px;
   flex-shrink: 0;
@@ -993,18 +993,6 @@ body.has-page-scroll .sticky-pagination {
   }
 }
 
-.video-card-select {
-  position: absolute;
-  top: 0.75rem;
-  left: 0.75rem;
-  z-index: 20;
-  opacity: 0;
-  transform: translateY(-2px) scale(0.96);
-  transition:
-    opacity 160ms ease,
-    transform 160ms ease;
-}
-
 /* Keep full date and duration text readable on the narrowest portrait cards. */
 @container (max-width: 198px) {
   .jav-card-duration-icon {
@@ -1021,20 +1009,6 @@ body.has-page-scroll .sticky-pagination {
 /* Restored modal-trigger focus must not keep cover actions visible on mouse leave. */
 .card-hover-scope:has(:focus-visible:not(.card-modal-trigger)) .card-hover-focus-visible {
   opacity: 1;
-}
-
-.video-card-cover:hover .video-card-select,
-.video-card-cover:has(:focus-visible) .video-card-select,
-.video-card-select.is-visible {
-  opacity: 1;
-  transform: translateY(0) scale(1);
-}
-
-@media (hover: none) {
-  .video-card-select {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
 }
 
 .video-select-check {

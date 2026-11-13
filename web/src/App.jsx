@@ -391,7 +391,12 @@ export default function App() {
     activeFavoriteGroupsLoading,
     activeFavoriteGroupsError,
     activeSelectedFavoriteGroupId,
-  } = useFavoriteGroups({ isJavMode, saveScrollBeforeUrlStateChange, setJavSearchInput })
+  } = useFavoriteGroups({
+    isJavMode,
+    saveScrollBeforeUrlStateChange,
+    setJavSearchInput,
+    setSearchInput,
+  })
 
   useDocumentTitle(
     buildLibraryPageTitle({
@@ -534,6 +539,21 @@ export default function App() {
             Number.isFinite(parsedCurrentGroupId) && parsedCurrentGroupId > 0
               ? parsedCurrentGroupId
               : null
+          if (!isJavMode) {
+            if (targetGroupId === currentGroupId) {
+              return buildVideoUrl({ page: 1 })
+            }
+            return buildVideoUrl({
+              page: 1,
+              search: '',
+              tagIds: [],
+              directoryId: null,
+              subdirectory: '',
+              random: false,
+              tempSort: '',
+              favoriteGroupId: targetGroupId,
+            })
+          }
           if (targetGroupId === currentGroupId) {
             return buildJavUrl({
               page: 1,

@@ -10,6 +10,7 @@ export async function fetchVideos({
   hideJav = false,
   directoryId = null,
   subdirectory = '',
+  favoriteGroupId = null,
   signal,
 } = {}) {
   const params = new URLSearchParams()
@@ -23,6 +24,7 @@ export async function fetchVideos({
   }
   if (sort) params.set('sort', sort)
   if (seed != null) params.set('seed', String(seed))
+  if (favoriteGroupId) params.set('favorite_group_id', String(favoriteGroupId))
   params.set('hide_jav', hideJav ? '1' : '0')
   const res = await apiFetch(`/videos?${params.toString()}`, { signal })
   if (!res.ok) throw await apiError(res)

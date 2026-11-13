@@ -223,6 +223,8 @@ function favoriteEntityLabel(entityType) {
       return zh('片商', 'studio')
     case 'series':
       return zh('系列', 'series')
+    case 'video':
+      return zh('视频', 'video')
     case 'idol':
     default:
       return zh('女优', 'idol')
@@ -238,6 +240,10 @@ function favoriteItemName(entityType, item, preferChineseName, preferChinese, tr
   if (entityType === 'jav') {
     const title = getJavDisplayTitle(item, translateTitle)
     return [...new Set([item?.code, title])].filter(Boolean).join(' ')
+  }
+  if (entityType === 'video') {
+    const name = String(item?.name || '').trim()
+    return name || zh('未知视频', 'Unknown video')
   }
   const name = String(item?.name || '').trim()
   if (name) return name

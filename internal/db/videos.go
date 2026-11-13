@@ -16,6 +16,19 @@ import (
 
 // ListVideos returns paginated active video locations as video-like rows.
 // By default it includes locations already associated with JAV metadata.
+// applyVideoFavoriteGroupFilter limits results to videos that belong to one
+// video-specific favorite group. Video favorites are isolated from JAV/idol
+// favorites through entity_type = 'video', and entity_id stores video.id.
+func applyVideoFavoriteGroupFilter(query *gorm.DB, filters []VideoFilter) *gorm.DB {
+	if len(filters) == 0 || filters[0].FavoriteGroupID <= 0 {
+		return query
+	}
+	return query.Where(
+		"EXISTS (SELECT 1 FROM jav_favorite_map vfm WHERE vfm.entity_type = ? AND vfm.jav_favorite_group_id = ? AND vfm.entity_id = video_location.video_id)",
+		JavFavoriteEntityVideo, filters[0].FavoriteGroupID,
+	)
+}
+
 func (store *Store) ListVideos(ctx context.Context, limit, offset int, tagNames []string, search, sort string, seed *int64, directoryIDs []int64, filters ...VideoFilter) ([]models.Video, error) {
 	if limit <= 0 {
 		limit = 100
@@ -79,6 +92,7 @@ func (store *Store) ListVideos(ctx context.Context, limit, offset int, tagNames 
 	}
 	query = applyDirectoryFilter(query, "video_location", directoryIDs)
 	query = applyVideoSubdirectoryFilter(query, filters)
+	query = applyVideoFavoriteGroupFilter(query, filters)
 	if useExpr {
 		query = query.Order(clause.OrderBy{Expression: orderExpr})
 	} else {
@@ -184,6 +198,7 @@ func (store *Store) CountVideos(ctx context.Context, tagNames []string, search s
 		}
 		base = applyDirectoryFilter(base, "video_location", directoryIDs)
 		base = applyVideoSubdirectoryFilter(base, filters)
+		base = applyVideoFavoriteGroupFilter(base, filters)
 		if like != "" {
 			base = base.Where("video_location.filename LIKE ? COLLATE NOCASE", like)
 		}
@@ -208,6 +223,7 @@ func (store *Store) CountVideos(ctx context.Context, tagNames []string, search s
 	}
 	sub = applyDirectoryFilter(sub, "video_location", directoryIDs)
 	sub = applyVideoSubdirectoryFilter(sub, filters)
+	sub = applyVideoFavoriteGroupFilter(sub, filters)
 
 	if like != "" {
 		sub = sub.Where("video_location.filename LIKE ? COLLATE NOCASE", like)

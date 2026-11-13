@@ -427,6 +427,8 @@ export default function TopBar({
         return zh('片商收藏夹', 'Studio favorites')
       case 'series':
         return zh('系列收藏夹', 'Series favorites')
+      case 'video':
+        return zh('视频收藏夹', 'Video favorites')
       default:
         return zh('女优收藏夹', 'Idol favorites')
     }
@@ -505,12 +507,7 @@ export default function TopBar({
           JavBoss
         </button>
         <div className="filter-topbar__controls">
-          {!isJavMode ? (
-            <div className="relative -ml-1 mr-4 shrink-0 border-r border-slate-200 pr-4 dark:border-ui-border">
-              <VideoDirectoryFilter />
-            </div>
-          ) : null}
-          {isJavMode && !isJavDownload ? (
+          {!isJavDownload ? (
             <div
               ref={favoriteMenuRef}
               className="relative -ml-1 mr-4 shrink-0 border-r border-slate-200 pr-4 dark:border-ui-border"
@@ -617,6 +614,12 @@ export default function TopBar({
               <ShuffleOutlinedIcon fontSize="small" />
               <span>{zh('随机', 'Random')}</span>
             </button>
+          ) : null}
+
+          {!isJavMode ? (
+            <div className="relative shrink-0 border-l border-slate-200 pl-4 dark:border-ui-border">
+              <VideoDirectoryFilter />
+            </div>
           ) : null}
 
           {showFilterCluster ? (

@@ -13,7 +13,7 @@ export function buildVideoQueryLink(state, options = {}, pathname = '/') {
   for (const key of ['page', 'search', 'random', 'seed', 'tagIds']) {
     if (options[key] != null) video[key] = options[key]
   }
-  for (const key of ['directoryId', 'subdirectory']) {
+  for (const key of ['directoryId', 'subdirectory', 'favoriteGroupId']) {
     if (has(options, key)) video[key] = options[key]
   }
   video.search = String(video.search || '').trim()
