@@ -1,4 +1,4 @@
-import JavIdolCoverModal from '@/features/jav/components/JavIdolCoverModal'
+import JavIdolCoverEditor from '@/features/jav/components/JavIdolCoverEditor'
 import { JavIdolEditModal } from '@/features/jav/components/JavIdolGrid'
 import { JavEditModal } from '@/features/jav/components/JavEditModal'
 import { JavCustomTagModal } from '@/features/jav/components/JavCustomTagModal'
@@ -35,7 +35,7 @@ export function JavItemEditors({
           onSaved={handleSeriesSaved}
         />
       )}
-      <JavIdolCoverModal
+      <JavIdolCoverEditor
         key={`idol-cover-${idolCoverEditorItem?.id || 'closed'}`}
         open={Boolean(idolCoverEditorItem)}
         item={idolCoverEditorItem}

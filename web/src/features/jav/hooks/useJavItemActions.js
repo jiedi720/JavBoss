@@ -533,10 +533,12 @@ export default function useJavItemActions({
   const handleIdolCoverSaved = (updated) => {
     const updatedId = Number(updated?.id)
     if (!Number.isFinite(updatedId) || updatedId <= 0) return
-    updateStoredIdol(updated)
-    onIdolPreviewUpdated?.(updated)
+    // Force the idol card to refetch the cover after a new image was saved.
+    const refreshed = { ...updated, _coverVersion: Date.now() }
+    updateStoredIdol(refreshed)
+    onIdolPreviewUpdated?.(refreshed)
     setPreviewIdol((current) =>
-      current && Number(current.id) === updatedId ? { ...current, ...updated } : current
+      current && Number(current.id) === updatedId ? { ...current, ...refreshed } : current
     )
   }
 

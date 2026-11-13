@@ -805,7 +805,7 @@ export default function JavDetailModal({
                       key={actor?.id || actor?.name}
                       href={buildIdolUrl?.(actor) || '#'}
                       onClick={(event) => handleFilterClick(event, onSelectIdol, actor)}
-                      className="rounded-full border border-purple-200 bg-purple-50 px-3 py-1 text-xs font-medium text-purple-700 transition hover:border-purple-300 hover:bg-purple-100 dark:border-purple-800 dark:bg-purple-950 dark:text-purple-300 dark:hover:border-purple-400 dark:hover:bg-purple-900"
+                      className="rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-xs font-medium text-sky-700 transition hover:border-sky-300 hover:bg-sky-100 dark:border-sky-800 dark:bg-sky-950 dark:text-sky-300 dark:hover:border-sky-400 dark:hover:bg-sky-900"
                       onMouseEnter={(event) => handleHoverStart('idol', actor, event)}
                       onMouseLeave={scheduleHoverClose}
                     >

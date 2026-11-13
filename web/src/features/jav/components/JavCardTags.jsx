@@ -8,6 +8,7 @@ import {
   normalizeJavTagMaxRows,
 } from '@/features/jav/presentation'
 import { getIdolDisplayName } from '@/utils/javIdol'
+import { isMaleActor } from '@/utils/actorTabs'
 import { zh } from '@/utils/i18n'
 import { isUserJavTag } from '@/constants/jav'
 import { normalizeCoverCropPosition } from '@/features/jav/coverCrop'
@@ -180,18 +181,25 @@ export function IdolTagList({
   return (
     <div className="relative">
       <div className={`flex min-w-0 flex-1 flex-wrap ${gapClassName}`}>
-        {renderedIdols.map((idol) => (
-          <a
-            key={idol.id || idol.name}
-            href={buildIdolFilterHref(idol)}
-            className={`rounded-full bg-purple-100 font-medium text-purple-700 transition hover:bg-purple-200 dark:bg-purple-900 dark:text-purple-300 dark:hover:bg-purple-900 ${tagSizeClassName}`}
-            onMouseEnter={(event) => onIdolHoverStart(idol, event)}
-            onMouseLeave={onIdolHoverEnd}
-            onClick={(event) => onFilterLinkClick(event, () => onIdolClick?.(idol))}
-          >
-            {getIdolDisplayName(idol, preferChineseName)}
-          </a>
-        ))}
+        {renderedIdols.map((idol) => {
+          // Actresses stay purple; male actors get a distinct sky tone so a
+          // mixed cast reads apart at a glance.
+          const tagColorClassName = isMaleActor(idol?.gender)
+            ? 'bg-sky-100 text-sky-700 hover:bg-sky-200 dark:bg-sky-900 dark:text-sky-300 dark:hover:bg-sky-900'
+            : 'bg-purple-100 text-purple-700 hover:bg-purple-200 dark:bg-purple-900 dark:text-purple-300 dark:hover:bg-purple-900'
+          return (
+            <a
+              key={idol.id || idol.name}
+              href={buildIdolFilterHref(idol)}
+              className={`rounded-full font-medium transition ${tagColorClassName} ${tagSizeClassName}`}
+              onMouseEnter={(event) => onIdolHoverStart(idol, event)}
+              onMouseLeave={onIdolHoverEnd}
+              onClick={(event) => onFilterLinkClick(event, () => onIdolClick?.(idol))}
+            >
+              {getIdolDisplayName(idol, preferChineseName)}
+            </a>
+          )
+        })}
         {showToggle ? (
           <TagCollapseToggleButton
             expanded={expanded}

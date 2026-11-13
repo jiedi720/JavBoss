@@ -4,13 +4,7 @@ import CloseOutlinedIcon from '@mui/icons-material/CloseOutlined'
 import ImageRoundedIcon from '@mui/icons-material/ImageRounded'
 import RestartAltRoundedIcon from '@mui/icons-material/RestartAltRounded'
 import SaveRoundedIcon from '@mui/icons-material/SaveRounded'
-import UploadFileRoundedIcon from '@mui/icons-material/UploadFileRounded'
-import {
-  fetchJavIdolCoverOptions,
-  updateJavIdolCover,
-  updateJavIdolCoverURL,
-  uploadJavIdolCover,
-} from '@/features/jav/api'
+import { fetchJavIdolCoverOptions, updateJavIdolCover } from '@/features/jav/api'
 import AppModal from '@/shared/ui/AppModal'
 import { getJavDisplayTitle } from '@/utils/jav'
 import { useStore } from '@/store'
@@ -66,7 +60,6 @@ export default function JavIdolCoverModal({
   onSaved,
 }) {
   const previewRef = useRef(null)
-  const coverFileRef = useRef(null)
   const [options, setOptions] = useState([])
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -76,12 +69,6 @@ export default function JavIdolCoverModal({
   const [dragging, setDragging] = useState(false)
   const [imageFailed, setImageFailed] = useState(false)
   const [imageSize, setImageSize] = useState(null)
-  // A cover uploaded or downloaded from a URL bypasses the work-based cover
-  // list, so its code is tracked locally until the parent item refreshes.
-  const [customCoverCode, setCustomCoverCode] = useState('')
-  const [coverURLInput, setCoverURLInput] = useState('')
-  const [coverBusy, setCoverBusy] = useState(false)
-  const [coverVersion, setCoverVersion] = useState(0)
 
   const idolId = Number(item?.id)
   const itemCoverCode = getIdolCoverCode(item)
@@ -124,21 +111,15 @@ export default function JavIdolCoverModal({
       setDragging(false)
       setImageFailed(false)
       setImageSize(null)
-      setCoverURLInput('')
-      return
     }
-    setCustomCoverCode(String(item?.cover_image || '').trim())
-    setCoverURLInput('')
-  }, [item?.cover_image, open])
+  }, [open])
 
   const selectedOption = useMemo(
     () => options.find((option) => Number(option?.id) === Number(selectedJavId)) || null,
     [options, selectedJavId]
   )
-  const previewCode = String(customCoverCode || selectedOption?.code || itemCoverCode).trim()
-  const coverSrc = previewCode
-    ? `/jav/${encodeURIComponent(previewCode)}/cover${coverVersion ? `?v=${coverVersion}` : ''}`
-    : ''
+  const previewCode = String(selectedOption?.code || itemCoverCode).trim()
+  const coverSrc = previewCode ? `/jav/${encodeURIComponent(previewCode)}/cover` : ''
   const translateTitle = useStore((state) => preferChineseTitle(state.config))
   const title = selectedOption ? getJavDisplayTitle(selectedOption, translateTitle) : ''
   const visibleRatio = getCoverVisibleRatio(imageSize)
@@ -192,48 +173,6 @@ export default function JavIdolCoverModal({
       setError(getErrorMessage(err))
     } finally {
       setSaving(false)
-    }
-  }
-
-  const applyCoverResult = (updated) => {
-    const nextCode = String(updated?.cover_code || '').trim()
-    setSelectedJavId(0)
-    setCustomCoverCode(nextCode)
-    setImageFailed(false)
-    setImageSize(null)
-    setCoverVersion((current) => current + 1)
-    onSaved?.(updated)
-  }
-
-  const handleCoverUpload = async (event) => {
-    const file = event.target.files?.[0]
-    event.target.value = ''
-    if (!file || !Number.isFinite(idolId) || idolId <= 0 || coverBusy) return
-    setCoverBusy(true)
-    setError('')
-    try {
-      const updated = await uploadJavIdolCover(idolId, file, actorGender)
-      applyCoverResult(updated)
-    } catch (err) {
-      setError(getErrorMessage(err))
-    } finally {
-      setCoverBusy(false)
-    }
-  }
-
-  const handleCoverURLApply = async () => {
-    const url = coverURLInput.trim()
-    if (!url || !Number.isFinite(idolId) || idolId <= 0 || coverBusy) return
-    setCoverBusy(true)
-    setError('')
-    try {
-      const updated = await updateJavIdolCoverURL(idolId, url, actorGender)
-      setCoverURLInput('')
-      applyCoverResult(updated)
-    } catch (err) {
-      setError(getErrorMessage(err))
-    } finally {
-      setCoverBusy(false)
     }
   }
 
@@ -402,61 +341,6 @@ export default function JavIdolCoverModal({
                 className="min-w-0 flex-1 accent-slate-900 dark:accent-blue-400"
               />
             </label>
-
-            <div className="mt-5 rounded-md border border-slate-200 p-3 dark:border-ui-border">
-              <div className="text-[13px] font-semibold text-black dark:text-ui-text">
-                {zh('自定义封面', 'Custom cover')}
-              </div>
-              <p className="mt-1 text-xs text-slate-500 dark:text-ui-faint">
-                {zh(
-                  '当封面缺失或显示错误时，可上传本地图片，或输入封面图片链接；上传或应用后会立即下载到本地并完成更新。',
-                  'If the cover is missing or incorrect, upload an image or paste an image URL; it is written to the local cover directory right away.'
-                )}
-              </p>
-              <div className="mt-2 flex flex-wrap items-center gap-2">
-                <input
-                  ref={coverFileRef}
-                  type="file"
-                  accept="image/jpeg,image/png"
-                  className="hidden"
-                  onChange={handleCoverUpload}
-                  disabled={coverBusy}
-                />
-                <button
-                  type="button"
-                  className="inline-flex items-center gap-1.5 rounded border border-slate-300 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-ui-border dark:text-ui-secondary dark:hover:bg-ui-hover"
-                  onClick={() => coverFileRef.current?.click()}
-                  disabled={coverBusy || loading}
-                >
-                  <UploadFileRoundedIcon sx={{ fontSize: 17 }} />
-                  {zh('上传图片', 'Upload image')}
-                </button>
-                <span className="text-xs text-slate-400 dark:text-ui-faint">
-                  {zh('JPG / PNG，小于 12MB', 'JPG / PNG, under 12MB')}
-                </span>
-              </div>
-              <div className="mt-2 flex flex-wrap items-center gap-2">
-                <input
-                  type="url"
-                  value={coverURLInput}
-                  onChange={(event) => {
-                    setCoverURLInput(event.target.value)
-                    if (error) setError('')
-                  }}
-                  placeholder="https://..."
-                  className="form-field min-w-0 flex-1 rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                  disabled={coverBusy}
-                />
-                <button
-                  type="button"
-                  className="inline-flex items-center gap-1.5 rounded bg-ui-primary px-3 py-1.5 text-sm text-white enabled:hover:bg-ui-primary-hover disabled:cursor-not-allowed disabled:opacity-50"
-                  onClick={handleCoverURLApply}
-                  disabled={coverBusy || !coverURLInput.trim()}
-                >
-                  {coverBusy ? zh('处理中…', 'Working...') : zh('应用链接', 'Apply URL')}
-                </button>
-              </div>
-            </div>
 
             {error ? (
               <div className="mt-3 text-sm text-rose-600 dark:text-rose-300">{error}</div>

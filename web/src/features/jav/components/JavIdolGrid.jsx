@@ -1,24 +1,19 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded'
-import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded'
 import EditRoundedIcon from '@mui/icons-material/EditRounded'
 import PhotoCameraRoundedIcon from '@mui/icons-material/PhotoCameraRounded'
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded'
 import StarBorderRoundedIcon from '@mui/icons-material/StarBorderRounded'
 import StarRoundedIcon from '@mui/icons-material/StarRounded'
-import {
-  deleteJavIdol,
-  fetchJavIdolOptions,
-  mergeJavIdols,
-  updateJavIdol,
-} from '@/features/jav/api'
+import { fetchJavIdolOptions, mergeJavIdols, updateJavIdol } from '@/features/jav/api'
 import { actorGenderOf, actorTerms } from '@/utils/actorTabs'
 import AppModal from '@/shared/ui/AppModal'
-import JavIdolCoverModal, {
+import {
   IDOL_COVER_DEFAULT_CROP_LEFT,
   IDOL_COVER_VISIBLE_RATIO,
   normalizeIdolCoverCropLeft,
 } from '@/features/jav/components/JavIdolCoverModal'
+import JavIdolCoverEditor from '@/features/jav/components/JavIdolCoverEditor'
 import { getIdolDisplayNames } from '@/utils/javIdol'
 import { openJavDBWithAssist } from '@/utils/javdb'
 import { zh } from '@/utils/i18n'
@@ -52,7 +47,6 @@ export default function JavIdolGrid({
   const terms = actorTerms(gender)
   const [coverEditorItem, setCoverEditorItem] = useState(null)
   const [editItem, setEditItem] = useState(null)
-  const [deletingId, setDeletingId] = useState(0)
   const [coverOverrides, setCoverOverrides] = useState(() => new Map())
   const displayItems = useMemo(() => {
     if (!Array.isArray(items)) return []
@@ -62,30 +56,6 @@ export default function JavIdolGrid({
       return override ? { ...item, ...override } : item
     })
   }, [coverOverrides, items])
-
-  const handleDelete = async (target) => {
-    const id = Number(target?.id)
-    if (!Number.isFinite(id) || id <= 0 || deletingId) return
-    const name = String(target?.name || '').trim() || zh('未命名', 'Unnamed')
-    const confirmed = window.confirm(
-      zh(
-        `确定删除${terms.zhNoun}「${name}」吗？该${terms.zhNoun}与作品的关联会一并解除，此操作无法撤回。`,
-        `Delete ${terms.enSingular} "${name}"? All linked works will be unlinked. This cannot be undone.`
-      )
-    )
-    if (!confirmed) return
-    setDeletingId(id)
-    try {
-      await deleteJavIdol(id, gender)
-      setCoverEditorItem(null)
-      setEditItem(null)
-      onMerged?.()
-    } catch (err) {
-      window.alert(getErrorMessage(err))
-    } finally {
-      setDeletingId(0)
-    }
-  }
 
   const hasItems = displayItems.length > 0
   if (!hasItems) {
@@ -111,15 +81,13 @@ export default function JavIdolGrid({
             onOpenFavorites={onOpenFavorites}
             onOpenCoverEditor={setCoverEditorItem}
             onOpenEditor={setEditItem}
-            onDelete={handleDelete}
-            deleting={deletingId === Number(item?.id)}
             href={buildIdolUrl?.(item)}
             coverAspectPercent={coverAspectPercent}
             preferChineseName={preferChineseName}
           />
         ))}
       </div>
-      <JavIdolCoverModal
+      <JavIdolCoverEditor
         key={`cover-${coverEditorItem?.id || 'closed'}`}
         open={Boolean(coverEditorItem)}
         item={coverEditorItem}
@@ -131,7 +99,9 @@ export default function JavIdolGrid({
           if (!Number.isFinite(id) || id <= 0) return
           setCoverOverrides((current) => {
             const next = new Map(current)
-            next.set(id, updated)
+            // Bust the cover URL cache so the freshly uploaded/downloaded image
+            // shows up immediately instead of the previous cached file.
+            next.set(id, { ...updated, _coverVersion: Date.now() })
             return next
           })
         }}
@@ -169,8 +139,6 @@ export function IdolCard({
   onOpenFavorites,
   onOpenCoverEditor,
   onOpenEditor,
-  onDelete,
-  deleting = false,
   href,
   coverAspectPercent,
   showWorkCount = true,
@@ -178,7 +146,10 @@ export function IdolCard({
 }) {
   const terms = actorTerms(gender)
   const coverCode = String(item?.cover_code || '').trim()
-  const cover = coverCode ? `/jav/${encodeURIComponent(coverCode)}/cover` : null
+  const coverVersion = Number(item?._coverVersion) || 0
+  const cover = coverCode
+    ? `/jav/${encodeURIComponent(coverCode)}/cover${coverVersion ? `?v=${coverVersion}` : ''}`
+    : null
   const coverCropLeft = normalizeIdolCoverCropLeft(
     item?.cover_crop_left ?? IDOL_COVER_DEFAULT_CROP_LEFT
   )
@@ -381,22 +352,6 @@ export function IdolCard({
         >
           <PhotoCameraRoundedIcon sx={{ fontSize: 16 }} />
         </button>
-        {onDelete ? (
-          <button
-            type="button"
-            className="card-hover-focus-visible absolute bottom-2 right-[4.5rem] flex h-7 w-7 items-center justify-center rounded-full bg-black/70 text-white opacity-0 shadow-lg shadow-black/60 transition-opacity hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60 group-hover:opacity-100"
-            title={zh(`删除${terms.zhNoun}`, `Delete ${terms.enSingular}`)}
-            aria-label={zh(`删除${terms.zhNoun}`, `Delete ${terms.enSingular}`)}
-            disabled={deleting}
-            onClick={(event) => {
-              event.preventDefault()
-              event.stopPropagation()
-              onDelete(item)
-            }}
-          >
-            <DeleteOutlineRoundedIcon sx={{ fontSize: 16 }} />
-          </button>
-        ) : null}
         <button
           type="button"
           className="card-hover-focus-visible absolute bottom-2 right-2 flex h-7 w-7 items-center justify-center rounded-full bg-black/70 text-white opacity-0 shadow-lg shadow-black/60 transition-opacity hover:bg-black/85 group-hover:opacity-100"
