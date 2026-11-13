@@ -1,3 +1,4 @@
+import { isActorListTab } from '@/utils/actorTabs'
 import { useStore } from '@/store'
 import { useShallow } from 'zustand/react/shallow'
 import { useCallback, useMemo, useEffect } from 'react'
@@ -122,10 +123,10 @@ export default function useWebHotkeys({ isJavMode, waterfallModes, setJavQueryEd
         return
       }
 
-      const waterfallKey = javTab === 'list' ? 'jav' : javTab
+      const waterfallKey = javTab === 'list' ? 'jav' : javTab === 'actor' ? 'idol' : javTab
       const activeWaterfallMode = Boolean(waterfallModes[waterfallKey])
       if (activeWaterfallMode) return
-      if (javTab === 'idol') {
+      if (isActorListTab(javTab)) {
         if (idolLoading) return
         if (direction < 0 && idolHasPrev) setIdolPage(idolPage - 1)
         else if (direction > 0 && idolHasNext) setIdolPage(idolPage + 1)

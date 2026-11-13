@@ -1,5 +1,14 @@
 import { apiFetch, jsonHeaders, apiError } from '@/api/client'
 import { zh } from '@/utils/i18n'
+import { ACTOR_GENDER_FEMALE, isMaleActor } from '@/utils/actorTabs'
+
+export { ACTOR_GENDER_FEMALE, ACTOR_GENDER_MALE, isMaleActor } from '@/utils/actorTabs'
+
+// Female and male actors share the jav_idol table. The backend exposes two
+// dedicated route groups so a female endpoint can never create a male actor.
+export function javActorBase(gender) {
+  return isMaleActor(gender) ? '/jav/actors' : '/jav/idols'
+}
 
 export function translateJavTitles(ids, options) {
   return translateTexts('/jav/title-translation/items', ids, options)
@@ -528,6 +537,7 @@ export async function fetchJavIdols({
   sort = '',
   favoriteGroupId = null,
   profileFilters = {},
+  gender = ACTOR_GENDER_FEMALE,
   signal,
 } = {}) {
   const params = new URLSearchParams()
@@ -542,15 +552,15 @@ export async function fetchJavIdols({
     params.set(`idol_${key}_min`, String(value.min))
     params.set(`idol_${key}_max`, String(value.max))
   }
-  const res = await apiFetch(`/jav/idols?${params.toString()}`, { signal })
+  const res = await apiFetch(`${javActorBase(gender)}?${params.toString()}`, { signal })
   if (!res.ok) {
     throw await apiError(res)
   }
   return res.json()
 }
 
-export async function createJavIdol(name) {
-  const res = await apiFetch('/jav/idols', {
+export async function createJavIdol(name, gender = ACTOR_GENDER_FEMALE) {
+  const res = await apiFetch(javActorBase(gender), {
     method: 'POST',
     headers: jsonHeaders,
     body: JSON.stringify({ name }),
@@ -561,20 +571,38 @@ export async function createJavIdol(name) {
   return res.json()
 }
 
-export async function fetchJavIdolOptions({ limit = 25, offset = 0, search = '' } = {}) {
+export async function deleteJavIdol(id, gender = ACTOR_GENDER_FEMALE) {
+  const res = await apiFetch(`${javActorBase(gender)}/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+  })
+  if (!res.ok) {
+    throw await apiError(res)
+  }
+}
+
+export async function fetchJavIdolOptions({
+  limit = 25,
+  offset = 0,
+  search = '',
+  gender = ACTOR_GENDER_FEMALE,
+} = {}) {
   const params = new URLSearchParams()
   params.set('limit', String(limit))
   params.set('offset', String(offset))
   if (search) params.set('search', search)
-  const res = await apiFetch(`/jav/idols/options?${params.toString()}`)
+  const res = await apiFetch(`${javActorBase(gender)}/options?${params.toString()}`)
   if (!res.ok) {
     throw await apiError(res)
   }
   return res.json()
 }
 
-export async function mergeJavIdols({ canonicalId, mergeIds = [] } = {}) {
-  const res = await apiFetch('/jav/idols/merge', {
+export async function mergeJavIdols({
+  canonicalId,
+  mergeIds = [],
+  gender = ACTOR_GENDER_FEMALE,
+} = {}) {
+  const res = await apiFetch(`${javActorBase(gender)}/merge`, {
     method: 'POST',
     headers: jsonHeaders,
     body: JSON.stringify({
@@ -588,8 +616,8 @@ export async function mergeJavIdols({ canonicalId, mergeIds = [] } = {}) {
   return res.json()
 }
 
-export async function updateJavIdol(id, payload) {
-  const res = await apiFetch(`/jav/idols/${encodeURIComponent(id)}`, {
+export async function updateJavIdol(id, payload, gender = ACTOR_GENDER_FEMALE) {
+  const res = await apiFetch(`${javActorBase(gender)}/${encodeURIComponent(id)}`, {
     method: 'PATCH',
     headers: jsonHeaders,
     body: JSON.stringify(payload),
@@ -600,8 +628,8 @@ export async function updateJavIdol(id, payload) {
   return res.json()
 }
 
-export async function fetchJavIdolCoverOptions(id) {
-  const res = await apiFetch(`/jav/idols/${encodeURIComponent(id)}/cover-options`)
+export async function fetchJavIdolCoverOptions(id, gender = ACTOR_GENDER_FEMALE) {
+  const res = await apiFetch(`${javActorBase(gender)}/${encodeURIComponent(id)}/cover-options`)
   if (!res.ok) {
     throw await apiError(res)
   }
@@ -609,8 +637,12 @@ export async function fetchJavIdolCoverOptions(id) {
   return Array.isArray(data?.items) ? data.items : []
 }
 
-export async function updateJavIdolCover(id, { javId = 0, cropLeft = 0.53 } = {}) {
-  const res = await apiFetch(`/jav/idols/${encodeURIComponent(id)}/cover`, {
+export async function updateJavIdolCover(
+  id,
+  { javId = 0, cropLeft = 0.53 } = {},
+  gender = ACTOR_GENDER_FEMALE
+) {
+  const res = await apiFetch(`${javActorBase(gender)}/${encodeURIComponent(id)}/cover`, {
     method: 'PUT',
     headers: jsonHeaders,
     body: JSON.stringify({ jav_id: javId, crop_left: cropLeft }),
@@ -736,8 +768,8 @@ export async function fetchJavSeriesPreview(id) {
   return res.json()
 }
 
-export async function fetchJavIdolPreview(id) {
-  const res = await apiFetch(`/jav/idols/${encodeURIComponent(id)}`)
+export async function fetchJavIdolPreview(id, gender = ACTOR_GENDER_FEMALE) {
+  const res = await apiFetch(`${javActorBase(gender)}/${encodeURIComponent(id)}`)
   if (!res.ok) {
     throw await apiError(res)
   }
@@ -767,7 +799,7 @@ export async function fetchJavJavDBURL({ code = '' } = {}) {
   return data?.url || ''
 }
 
-export async function resolveJavIdols(ids = []) {
+export async function resolveJavIdols(ids = [], gender = ACTOR_GENDER_FEMALE) {
   const clean = Array.from(
     new Set(
       (ids || [])
@@ -776,13 +808,13 @@ export async function resolveJavIdols(ids = []) {
     )
   ).sort((a, b) => a - b)
   if (!clean.length) return []
-  const key = clean.join(',')
+  const key = `${javActorBase(gender)}:${clean.join(',')}`
   if (javIdolResolveInFlight.has(key)) {
     return javIdolResolveInFlight.get(key)
   }
   const params = new URLSearchParams()
   params.set('ids', clean.join(','))
-  const request = apiFetch(`/jav/idols/resolve?${params.toString()}`)
+  const request = apiFetch(`${javActorBase(gender)}/resolve?${params.toString()}`)
     .then(async (res) => {
       if (!res.ok) {
         throw await apiError(res)

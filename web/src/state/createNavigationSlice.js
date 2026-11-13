@@ -17,6 +17,7 @@ export function createNavigationSlice({ set }) {
       if (
         tab !== 'list' &&
         tab !== 'idol' &&
+        tab !== 'actor' &&
         tab !== 'studio' &&
         tab !== 'series' &&
         tab !== 'download'

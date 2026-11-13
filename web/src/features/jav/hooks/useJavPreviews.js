@@ -5,6 +5,7 @@ import {
   fetchJavStudioPreview,
   fetchJavSeriesPreview,
 } from '@/features/jav/api'
+import { actorGenderOf } from '@/utils/actorTabs'
 
 export default function useJavPreviews() {
   const directoryVisibilityKey = useStore((state) =>
@@ -24,7 +25,8 @@ export default function useJavPreviews() {
       return idol || null
     }
 
-    const cacheKey = `${idolId}|${directoryVisibilityKey}`
+    const gender = actorGenderOf(undefined, idol)
+    const cacheKey = `${idolId}|${gender}|${directoryVisibilityKey}`
     const cached = idolPreviewCacheRef.current.get(cacheKey)
     if (cached) {
       return cached
@@ -35,7 +37,7 @@ export default function useJavPreviews() {
       return inflight
     }
 
-    const request = fetchJavIdolPreview(idolId)
+    const request = fetchJavIdolPreview(idolId, gender)
       .then((preview) => {
         idolPreviewCacheRef.current.set(cacheKey, preview)
         return preview

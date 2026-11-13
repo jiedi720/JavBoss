@@ -1,3 +1,4 @@
+import { isActorListTab } from '@/utils/actorTabs'
 import {
   createDefaultIdolProfileFilters,
   IDOL_PROFILE_FILTER_DEFINITIONS,
@@ -97,14 +98,17 @@ export const parseUrlState = (searchString = window.location.search, options = {
       ? 'download'
       : rawJavTab === 'idol'
         ? 'idol'
-        : rawJavTab === 'studio'
-          ? 'studio'
-          : rawJavTab === 'series'
-            ? 'series'
-            : 'list'
+        : rawJavTab === 'actor'
+          ? 'actor'
+          : rawJavTab === 'studio'
+            ? 'studio'
+            : rawJavTab === 'series'
+              ? 'series'
+              : 'list'
   const rawJavTempSort = (sp.get('temp_sort') || '').trim()
-  const javTempSort =
-    javTab === 'idol' ? normalizeIdolSort(rawJavTempSort, '') : normalizeJavSort(rawJavTempSort, '')
+  const javTempSort = isActorListTab(javTab)
+    ? normalizeIdolSort(rawJavTempSort, '')
+    : normalizeJavSort(rawJavTempSort, '')
   const favoriteRatingMin = parseFavoriteRating(sp.get('favorite_rating_min'))
   const favoriteRatingMax = parseFavoriteRating(sp.get('favorite_rating_max'))
   const favoriteRatingEnabled =
@@ -129,8 +133,9 @@ export const parseUrlState = (searchString = window.location.search, options = {
     favoriteRatingMax: favoriteRatingEnabled ? favoriteRatingMax : 5,
     favoriteGroupId: parsePositiveInt(sp.get('favorite_group_id')),
     idolFavoriteGroupId: parsePositiveInt(sp.get('favorite_group_id')),
-    idolProfileFilters:
-      javTab === 'idol' ? parseIdolProfileFilters(sp) : createDefaultIdolProfileFilters(),
+    idolProfileFilters: isActorListTab(javTab)
+      ? parseIdolProfileFilters(sp)
+      : createDefaultIdolProfileFilters(),
     tempSort: javTempSort,
     random: sp.get('random') === '1',
     seed: clampSeed(sp.get('seed')),
@@ -145,6 +150,7 @@ export const buildUrlFromState = (state, basePath = window.location.pathname) =>
     sp.set('view', 'jav')
     if (
       state.jav.tab === 'idol' ||
+      state.jav.tab === 'actor' ||
       state.jav.tab === 'studio' ||
       state.jav.tab === 'series' ||
       state.jav.tab === 'download'
@@ -183,13 +189,14 @@ export const buildUrlFromState = (state, basePath = window.location.pathname) =>
     if (
       (state.jav.tab === 'list' ||
         state.jav.tab === 'idol' ||
+        state.jav.tab === 'actor' ||
         state.jav.tab === 'studio' ||
         state.jav.tab === 'series') &&
       state.jav.favoriteGroupId
     ) {
       sp.set('favorite_group_id', String(state.jav.favoriteGroupId))
     }
-    if (state.jav.tab === 'idol') {
+    if (isActorListTab(state.jav.tab)) {
       const profileFilters = normalizeIdolProfileFilters(state.jav.idolProfileFilters)
       for (const definition of IDOL_PROFILE_FILTER_DEFINITIONS) {
         const value = profileFilters[definition.key]
@@ -199,7 +206,7 @@ export const buildUrlFromState = (state, basePath = window.location.pathname) =>
       }
     }
     if (
-      (state.jav.tab === 'list' || state.jav.tab === 'idol') &&
+      (state.jav.tab === 'list' || isActorListTab(state.jav.tab)) &&
       !state.jav.random &&
       state.jav.tempSort
     ) {
@@ -260,21 +267,22 @@ export const normalizeUrlStateFromStore = (store, tagsByName) => {
           ? 'download'
           : store.javTab === 'idol'
             ? 'idol'
-            : store.javTab === 'studio'
-              ? 'studio'
-              : store.javTab === 'series'
-                ? 'series'
-                : 'list',
-      page:
-        store.javTab === 'idol'
-          ? store.idolPage
-          : store.javTab === 'studio'
-            ? store.studioPage
-            : store.javTab === 'series'
-              ? store.seriesPage
-              : store.javRandomMode
-                ? 1
-                : store.javPage,
+            : store.javTab === 'actor'
+              ? 'actor'
+              : store.javTab === 'studio'
+                ? 'studio'
+                : store.javTab === 'series'
+                  ? 'series'
+                  : 'list',
+      page: isActorListTab(store.javTab)
+        ? store.idolPage
+        : store.javTab === 'studio'
+          ? store.studioPage
+          : store.javTab === 'series'
+            ? store.seriesPage
+            : store.javRandomMode
+              ? 1
+              : store.javPage,
       search: (store.javSearchTerm || '').trim(),
       idolIds: store.javIdolIds || [],
       tagIds: store.javTags || [],
@@ -287,23 +295,21 @@ export const normalizeUrlStateFromStore = (store, tagsByName) => {
       favoriteRatingEnabled: Boolean(store.javFavoriteRatingEnabled),
       favoriteRatingMin: store.javFavoriteRatingMin ?? 0.5,
       favoriteRatingMax: store.javFavoriteRatingMax ?? 5,
-      favoriteGroupId:
-        store.javTab === 'idol'
-          ? store.idolFavoriteGroupId || null
-          : store.javTab === 'studio'
-            ? store.studioFavoriteGroupId || null
-            : store.javTab === 'series'
-              ? store.seriesFavoriteGroupId || null
-              : store.javFavoriteGroupId || null,
-      idolFavoriteGroupId: store.javTab === 'idol' ? store.idolFavoriteGroupId || null : null,
-      idolProfileFilters:
-        store.javTab === 'idol'
-          ? normalizeIdolProfileFilters(store.idolProfileFilters)
-          : createDefaultIdolProfileFilters(),
+      favoriteGroupId: isActorListTab(store.javTab)
+        ? store.idolFavoriteGroupId || null
+        : store.javTab === 'studio'
+          ? store.studioFavoriteGroupId || null
+          : store.javTab === 'series'
+            ? store.seriesFavoriteGroupId || null
+            : store.javFavoriteGroupId || null,
+      idolFavoriteGroupId: isActorListTab(store.javTab) ? store.idolFavoriteGroupId || null : null,
+      idolProfileFilters: isActorListTab(store.javTab)
+        ? normalizeIdolProfileFilters(store.idolProfileFilters)
+        : createDefaultIdolProfileFilters(),
       tempSort:
         store.javTab === 'list' && !store.javRandomMode
           ? store.javTempSort || ''
-          : store.javTab === 'idol'
+          : isActorListTab(store.javTab)
             ? store.idolTempSort || ''
             : '',
       random: store.javTab === 'list' && store.javRandomMode,

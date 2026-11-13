@@ -1,3 +1,4 @@
+import { isActorListTab } from '@/utils/actorTabs'
 import { useStore } from '@/store'
 import { useShallow } from 'zustand/react/shallow'
 import useScrollRestoration from '@/navigation/useScrollRestoration'
@@ -121,7 +122,7 @@ export default function useContentRestoration({
   const activeError = isJavMode
     ? javTab === 'download'
       ? null
-      : javTab === 'idol'
+      : isActorListTab(javTab)
         ? idolError
         : javTab === 'studio'
           ? studioError
@@ -143,7 +144,7 @@ export default function useContentRestoration({
   const activeJavLoading =
     javTab === 'download'
       ? false
-      : javTab === 'idol'
+      : isActorListTab(javTab)
         ? idolLoading
         : javTab === 'studio'
           ? studioLoading
@@ -154,7 +155,7 @@ export default function useContentRestoration({
   const activeLoadingMore = isJavMode
     ? javTab === 'download'
       ? false
-      : javTab === 'idol'
+      : isActorListTab(javTab)
         ? idolLoadingMore
         : javTab === 'studio'
           ? studioLoadingMore

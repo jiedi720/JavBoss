@@ -17,6 +17,7 @@ import (
 	dbpkg "javboss/internal/db"
 	"javboss/internal/jav/scrape"
 	"javboss/internal/jav/scrape/cover"
+	"javboss/internal/models"
 )
 
 func listJavIdols(c *gin.Context) {
@@ -37,11 +38,13 @@ func listJavIdols(c *gin.Context) {
 	if !ok {
 		return
 	}
+	gender := actorGender(c)
+	filters.Gender = gender
 
 	items, total, err := dbpkg.Default().ListJavIdols(c.Request.Context(), search, sort, limit, offset, nil, favoriteGroupID, filters)
 	if err != nil {
-		logging.Error("list jav idols: %v", err)
-		respondLocalizedError(c, http.StatusInternalServerError, "加载女优列表失败", "Failed to load idols")
+		logging.Error("list jav actors gender=%s: %v", gender, err)
+		respondActorError(c, http.StatusInternalServerError, "加载%s列表失败", "Failed to load %ss")
 		return
 	}
 	enrichJavIdolSummaries(c.Request.Context(), items)
@@ -56,18 +59,28 @@ func createJavIdol(c *gin.Context) {
 		Name string `json:"name"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		respondLocalizedError(c, http.StatusBadRequest, "创建女优请求无效", "Invalid idol creation request")
+		respondActorError(c, http.StatusBadRequest, "创建%s请求无效", "Invalid %s creation request")
 		return
 	}
 
-	idol, err := dbpkg.Default().CreateJavIdol(c.Request.Context(), req.Name)
+	gender := actorGender(c)
+	var (
+		idol *models.JavIdol
+		err  error
+	)
+	if gender == models.ActorGenderMale {
+		idol, err = dbpkg.Default().CreateJavActor(c.Request.Context(), req.Name)
+	} else {
+		idol, err = dbpkg.Default().CreateJavIdol(c.Request.Context(), req.Name)
+	}
 	if err != nil {
-		logging.Error("create jav idol error: %v", err)
-		respondLocalizedError(c, http.StatusBadRequest, "创建女优失败，名称可能为空", "Failed to create idol; the name may be empty")
+		logging.Error("create jav actor gender=%s error: %v", gender, err)
+		respondActorError(c, http.StatusBadRequest, "创建%s失败，名称可能为空或已被另一性别使用", "Failed to create %s; the name may be empty or used by the other gender")
 		return
 	}
 	c.JSON(http.StatusCreated, dbpkg.JavIdolSummary{
 		ID:           idol.ID,
+		Gender:       idol.Gender,
 		Name:         idol.Name,
 		RomanName:    idol.RomanName,
 		JapaneseName: idol.JapaneseName,
@@ -135,10 +148,11 @@ func listJavIdolOptions(c *gin.Context) {
 		limit,
 		offset,
 		nil,
+		actorGender(c),
 	)
 	if err != nil {
-		logging.Error("list jav idol options: %v", err)
-		respondLocalizedError(c, http.StatusInternalServerError, "加载女优选项失败", "Failed to load idol options")
+		logging.Error("list jav actor options: %v", err)
+		respondActorError(c, http.StatusInternalServerError, "加载%s选项失败", "Failed to load %s options")
 		return
 	}
 
@@ -150,10 +164,11 @@ func listJavIdolOptions(c *gin.Context) {
 
 func resolveJavIdols(c *gin.Context) {
 	ids := parseInt64CSV(c.Query("ids"))
-	items, err := dbpkg.Default().ResolveJavIdols(c.Request.Context(), ids)
+	gender := actorGender(c)
+	items, err := dbpkg.Default().ResolveJavIdols(c.Request.Context(), ids, gender)
 	if err != nil {
-		logging.Error("resolve jav idols: %v", err)
-		respondLocalizedError(c, http.StatusInternalServerError, "解析女优信息失败", "Failed to resolve idol information")
+		logging.Error("resolve jav actors gender=%s: %v", gender, err)
+		respondActorError(c, http.StatusInternalServerError, "解析%s信息失败", "Failed to resolve %s information")
 		return
 	}
 	if items == nil {
@@ -176,18 +191,21 @@ func mergeJavIdols(c *gin.Context) {
 		return
 	}
 	if len(req.MergeIDs) == 0 {
-		respondLocalizedError(c, http.StatusBadRequest, "待合并女优 ID 不能为空", "Idol IDs to merge are required")
+		respondActorError(c, http.StatusBadRequest, "待合并%s ID 不能为空", "%s IDs to merge are required")
+		return
+	}
+	if !requireActorGender(c, req.CanonicalID, actorGender(c)) {
 		return
 	}
 
 	item, err := dbpkg.Default().MergeJavIdols(c.Request.Context(), req.CanonicalID, req.MergeIDs, nil)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			respondLocalizedError(c, http.StatusNotFound, "女优不存在", "Idol was not found")
+			respondActorError(c, http.StatusNotFound, "%s不存在", "%s was not found")
 			return
 		}
-		logging.Error("merge jav idols canonical=%d merge=%v: %v", req.CanonicalID, req.MergeIDs, err)
-		respondLocalizedError(c, http.StatusBadRequest, "合并女优失败，请检查所选女优是否有效", "Failed to merge idols; check the selected idols")
+		logging.Error("merge jav actors canonical=%d merge=%v: %v", req.CanonicalID, req.MergeIDs, err)
+		respondActorError(c, http.StatusBadRequest, "合并%s失败，请检查所选%s是否有效或性别是否一致", "Failed to merge %ss; check the selected %ss and their genders")
 		return
 	}
 	items := []dbpkg.JavIdolSummary{*item}
@@ -216,7 +234,11 @@ func updateJavIdol(c *gin.Context) {
 		Aliases      []string `json:"aliases"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		respondLocalizedError(c, http.StatusBadRequest, "修改女优信息请求无效", "Invalid idol update request")
+		respondActorError(c, http.StatusBadRequest, "修改%s信息请求无效", "Invalid %s update request")
+		return
+	}
+	gender := actorGender(c)
+	if !requireActorGender(c, id, gender) {
 		return
 	}
 
@@ -234,25 +256,26 @@ func updateJavIdol(c *gin.Context) {
 	}
 
 	item, err := dbpkg.Default().UpdateJavIdol(c.Request.Context(), id, dbpkg.JavIdolUpdateInput{
-		Name:         req.Name,
-		RomanName:    req.RomanName,
-		JapaneseName: req.JapaneseName,
-		ChineseName:  req.ChineseName,
-		HeightCM:     req.HeightCM,
-		BirthDate:    birthDate,
-		Bust:         req.Bust,
-		Waist:        req.Waist,
-		Hips:         req.Hips,
-		Cup:          req.Cup,
-		Aliases:      req.Aliases,
+		Name:           req.Name,
+		RomanName:      req.RomanName,
+		JapaneseName:   req.JapaneseName,
+		ChineseName:    req.ChineseName,
+		HeightCM:       req.HeightCM,
+		BirthDate:      birthDate,
+		Bust:           req.Bust,
+		Waist:          req.Waist,
+		Hips:           req.Hips,
+		Cup:            req.Cup,
+		Aliases:        req.Aliases,
+		ExpectedGender: gender,
 	}, nil)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			respondLocalizedError(c, http.StatusNotFound, "女优不存在", "Idol was not found")
+			respondActorError(c, http.StatusNotFound, "%s不存在", "%s was not found")
 			return
 		}
-		logging.Error("update jav idol id=%d: %v", id, err)
-		respondLocalizedError(c, http.StatusBadRequest, "保存女优信息失败", "Failed to save idol information")
+		logging.Error("update jav actor id=%d: %v", id, err)
+		respondActorError(c, http.StatusBadRequest, "保存%s信息失败", "Failed to save %s information")
 		return
 	}
 	items := []dbpkg.JavIdolSummary{*item}
@@ -263,7 +286,10 @@ func updateJavIdol(c *gin.Context) {
 func listJavIdolCoverOptions(c *gin.Context) {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil || id <= 0 {
-		respondLocalizedError(c, http.StatusBadRequest, "女优 ID 无效", "Invalid idol ID")
+		respondActorError(c, http.StatusBadRequest, "%s ID 无效", "Invalid %s ID")
+		return
+	}
+	if !requireActorGender(c, id, actorGender(c)) {
 		return
 	}
 
@@ -273,8 +299,8 @@ func listJavIdolCoverOptions(c *gin.Context) {
 		nil,
 	)
 	if err != nil {
-		logging.Error("list jav idol cover options id=%d: %v", id, err)
-		respondLocalizedError(c, http.StatusInternalServerError, "加载女优封面选项失败", "Failed to load idol cover options")
+		logging.Error("list jav actor cover options id=%d: %v", id, err)
+		respondActorError(c, http.StatusInternalServerError, "加载%s封面选项失败", "Failed to load %s cover options")
 		return
 	}
 	if options == nil {
@@ -286,7 +312,10 @@ func listJavIdolCoverOptions(c *gin.Context) {
 func updateJavIdolCover(c *gin.Context) {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil || id <= 0 {
-		respondLocalizedError(c, http.StatusBadRequest, "女优 ID 无效", "Invalid idol ID")
+		respondActorError(c, http.StatusBadRequest, "%s ID 无效", "Invalid %s ID")
+		return
+	}
+	if !requireActorGender(c, id, actorGender(c)) {
 		return
 	}
 
@@ -295,7 +324,7 @@ func updateJavIdolCover(c *gin.Context) {
 		CropLeft float64 `json:"crop_left"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		respondLocalizedError(c, http.StatusBadRequest, "更新女优封面请求无效", "Invalid idol cover update request")
+		respondActorError(c, http.StatusBadRequest, "更新%s封面请求无效", "Invalid %s cover update request")
 		return
 	}
 	if math.IsNaN(req.CropLeft) || math.IsInf(req.CropLeft, 0) {
@@ -312,11 +341,11 @@ func updateJavIdolCover(c *gin.Context) {
 	)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			respondLocalizedError(c, http.StatusNotFound, "女优或封面作品不存在", "Idol or cover item was not found")
+			respondActorError(c, http.StatusNotFound, "%s或封面作品不存在", "%s or cover item was not found")
 			return
 		}
-		logging.Error("update jav idol cover id=%d: %v", id, err)
-		respondLocalizedError(c, http.StatusBadRequest, "保存女优封面失败", "Failed to save idol cover")
+		logging.Error("update jav actor cover id=%d: %v", id, err)
+		respondActorError(c, http.StatusBadRequest, "保存%s封面失败", "Failed to save %s cover")
 		return
 	}
 
@@ -328,18 +357,21 @@ func updateJavIdolCover(c *gin.Context) {
 func getJavIdol(c *gin.Context) {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil || id <= 0 {
-		respondLocalizedError(c, http.StatusBadRequest, "女优 ID 无效", "Invalid idol ID")
+		respondActorError(c, http.StatusBadRequest, "%s ID 无效", "Invalid %s ID")
+		return
+	}
+	if !requireActorGender(c, id, actorGender(c)) {
 		return
 	}
 
 	item, err := dbpkg.Default().GetJavIdolSummary(c.Request.Context(), id, nil)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			respondLocalizedError(c, http.StatusNotFound, "女优不存在", "Idol was not found")
+			respondActorError(c, http.StatusNotFound, "%s不存在", "%s was not found")
 			return
 		}
-		logging.Error("get jav idol id=%d: %v", id, err)
-		respondLocalizedError(c, http.StatusInternalServerError, "加载女优信息失败", "Failed to load idol information")
+		logging.Error("get jav actor id=%d: %v", id, err)
+		respondActorError(c, http.StatusInternalServerError, "加载%s信息失败", "Failed to load %s information")
 		return
 	}
 

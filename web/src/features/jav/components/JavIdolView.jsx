@@ -12,6 +12,7 @@ import {
   sortLabelParts,
 } from '@/constants/jav'
 import { zh } from '@/utils/i18n'
+import { actorTerms } from '@/utils/actorTabs'
 
 function SortText({ option, value, className = '' }) {
   const parts = sortLabelParts(option, value, zh)
@@ -26,6 +27,7 @@ function SortText({ option, value, className = '' }) {
 }
 
 export default function JavIdolView({
+  gender = 'female',
   page,
   lastPage,
   totalItems,
@@ -53,6 +55,7 @@ export default function JavIdolView({
   loadingMore,
   hasMore,
 }) {
+  const terms = actorTerms(gender)
   const [sortAnchorEl, setSortAnchorEl] = useState(null)
   const effectiveSort = idolTempSort || idolGlobalSort
   const currentOption = findSortOption(IDOL_SORT_OPTIONS, effectiveSort) || IDOL_SORT_OPTIONS[1]
@@ -102,7 +105,10 @@ export default function JavIdolView({
               onClick={openSortMenu}
               aria-haspopup="dialog"
               aria-expanded={Boolean(sortAnchorEl)}
-              aria-label={zh('修改当前女优排序方式', 'Change current idol sort')}
+              aria-label={zh(
+                `修改当前${terms.zhNoun}排序方式`,
+                `Change current ${terms.enSingular} sort`
+              )}
               className="pagination-sort-button"
             >
               {isFavoriteOrder ? (
@@ -190,6 +196,7 @@ export default function JavIdolView({
         </div>
       ) : (
         <JavIdolGrid
+          gender={gender}
           items={items}
           onSelectIdol={onSelectIdol}
           onOpenFavorites={onOpenFavorites}

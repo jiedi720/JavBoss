@@ -223,7 +223,7 @@ func (store *Store) ListJavFavoriteGroups(ctx context.Context, entityType string
 			Select("jfg.id, jfg.entity_type, jfg.name, jfg.sort_order, COUNT(DISTINCT CASE WHEN solo_idols.cover_code IS NOT NULL THEN jfm.entity_id END) AS count").
 			Joins("LEFT JOIN jav_favorite_map jfm ON jfm.jav_favorite_group_id = jfg.id AND jfm.entity_type = ?", entityType).
 			Joins("LEFT JOIN jav_idol ji ON ji.id = jfm.entity_id").
-			Joins("LEFT JOIN (?) solo_idols ON solo_idols.jav_idol_id = jfm.entity_id", store.buildVisibleSoloIdolCoverQuery(ctx, directoryIDs))
+			Joins("LEFT JOIN (?) solo_idols ON solo_idols.jav_idol_id = jfm.entity_id", store.buildVisibleSoloIdolCoverQuery(ctx, directoryIDs, ""))
 	case JavFavoriteEntityJav:
 		query = query.
 			Select("jfg.id, jfg.entity_type, jfg.name, jfg.sort_order, COUNT(DISTINCT CASE WHEN j.id IS NOT NULL AND vl.id IS NOT NULL AND d.id IS NOT NULL AND "+activeDirectoryWhereSQL("d")+directoryFilterSQL("vl", directoryIDs)+" THEN j.id END) AS count").
@@ -533,7 +533,7 @@ func (store *Store) ListJavFavoriteGroupItems(ctx context.Context, entityType st
 		query = query.
 			Select("'idol' AS entity_type, ji.id, ji.name, ji.roman_name, ji.japanese_name, ji.chinese_name, COUNT(DISTINCT j.id) AS work_count, COALESCE(NULLIF(cover_jav.code, ''), solo_idols.cover_code) AS sample_code").
 			Joins("JOIN jav_idol ji ON ji.id = jfm.entity_id").
-			Joins("JOIN (?) solo_idols ON solo_idols.jav_idol_id = ji.id", store.buildVisibleSoloIdolCoverQuery(ctx, directoryIDs)).
+			Joins("JOIN (?) solo_idols ON solo_idols.jav_idol_id = ji.id", store.buildVisibleSoloIdolCoverQuery(ctx, directoryIDs, models.ActorGenderFemale)).
 			Joins("LEFT JOIN jav cover_jav ON cover_jav.id = ji.cover_jav_id").
 			Joins("JOIN jav_idol_map jim ON jim.jav_idol_id = ji.id").
 			Joins("JOIN jav j ON j.id = jim.jav_id").

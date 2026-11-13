@@ -11,6 +11,7 @@ import { useStore } from '@/store'
 import { zh } from '@/utils/i18n'
 import { getErrorMessage } from '@/utils/errors'
 import { getIdolDisplayName } from '@/utils/javIdol'
+import { actorGenderOf, actorTerms } from '@/utils/actorTabs'
 import { COVER_VISIBLE_RATIO, PORTRAIT_COVER_ASPECT } from '@/features/jav/coverCrop'
 
 export const IDOL_COVER_VISIBLE_RATIO = COVER_VISIBLE_RATIO
@@ -52,6 +53,7 @@ function getIdolCoverCode(item) {
 
 export default function JavIdolCoverModal({
   open,
+  gender,
   item,
   preferChineseName = false,
   onClose,
@@ -70,6 +72,8 @@ export default function JavIdolCoverModal({
 
   const idolId = Number(item?.id)
   const itemCoverCode = getIdolCoverCode(item)
+  const actorGender = actorGenderOf(gender, item)
+  const terms = actorTerms(actorGender)
 
   useEffect(() => {
     if (!open || !Number.isFinite(idolId) || idolId <= 0) return undefined
@@ -79,7 +83,7 @@ export default function JavIdolCoverModal({
     setOptions([])
     setSelectedJavId(Number(item?.cover_jav_id) || 0)
     setCropLeft(normalizeIdolCoverCropLeft(item?.cover_crop_left ?? IDOL_COVER_DEFAULT_CROP_LEFT))
-    fetchJavIdolCoverOptions(idolId)
+    fetchJavIdolCoverOptions(idolId, actorGender)
       .then((items) => {
         if (cancelled) return
         setOptions(items)
@@ -100,7 +104,7 @@ export default function JavIdolCoverModal({
     return () => {
       cancelled = true
     }
-  }, [idolId, itemCoverCode, item?.cover_crop_left, item?.cover_jav_id, open])
+  }, [actorGender, idolId, itemCoverCode, item?.cover_crop_left, item?.cover_jav_id, open])
 
   useEffect(() => {
     if (!open) {
@@ -155,10 +159,14 @@ export default function JavIdolCoverModal({
     setSaving(true)
     setError('')
     try {
-      const updated = await updateJavIdolCover(idolId, {
-        javId: Number(selectedJavId) || 0,
-        cropLeft: displayCropLeft,
-      })
+      const updated = await updateJavIdolCover(
+        idolId,
+        {
+          javId: Number(selectedJavId) || 0,
+          cropLeft: displayCropLeft,
+        },
+        actorGender
+      )
       onSaved?.(updated)
       onClose?.()
     } catch (err) {
@@ -172,7 +180,7 @@ export default function JavIdolCoverModal({
 
   return (
     <AppModal
-      ariaLabel={zh('女优封面', 'Idol cover')}
+      ariaLabel={zh(`${terms.zhNoun}封面`, `${terms.enSingularCap} cover`)}
       className="px-4 py-6"
       closeDisabled={saving}
       contentClassName="flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-lg bg-white dark:bg-ui-surface shadow-2xl"

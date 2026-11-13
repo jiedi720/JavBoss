@@ -51,6 +51,9 @@ export function idolQuery(state) {
     sort: state.idolTempSort || (state.idolFavoriteGroupId ? '' : state.idolSort),
     favoriteGroupId: state.idolFavoriteGroupId,
     profileFilters: normalizeIdolProfileFilters(state.idolProfileFilters),
+    // The same list resource serves both tabs; gender is part of the query key
+    // so switching tabs always refetches the right actors.
+    gender: state.javTab === 'actor' ? 'male' : 'female',
   }
 }
 

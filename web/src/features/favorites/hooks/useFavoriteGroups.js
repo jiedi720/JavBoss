@@ -1,3 +1,4 @@
+import { isActorListTab } from '@/utils/actorTabs'
 import { useStore } from '@/store'
 import { useShallow } from 'zustand/react/shallow'
 import { useState, useCallback } from 'react'
@@ -370,7 +371,7 @@ export default function useFavoriteGroups({
       ? 'studio'
       : javTab === 'series'
         ? 'series'
-        : javTab === 'idol'
+        : isActorListTab(javTab)
           ? 'idol'
           : 'jav'
 

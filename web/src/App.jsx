@@ -1,3 +1,4 @@
+import { isActorListTab } from '@/utils/actorTabs'
 import { useShallow } from 'zustand/react/shallow'
 import { useStore, videoSelectionKey } from '@/store'
 import { useState, useEffect, useCallback } from 'react'
@@ -576,7 +577,7 @@ export default function App() {
         hasActiveControlFilter={
           isJavMode &&
           ((javTab === 'list' && javFavoriteRatingEnabled) ||
-            (javTab === 'idol' &&
+            (isActorListTab(javTab) &&
               (Boolean(String(javSearchTerm || '').trim()) ||
                 Object.values(normalizeIdolProfileFilters(idolProfileFilters)).some(
                   (value) => value.enabled

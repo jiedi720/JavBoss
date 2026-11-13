@@ -1,3 +1,4 @@
+import { isActorListTab } from '@/utils/actorTabs'
 import { getSeriesDisplayName, preferChineseSeries } from '@/features/jav/titleTranslation'
 import { useStore } from '@/store'
 import { useShallow } from 'zustand/react/shallow'
@@ -333,7 +334,7 @@ export default function useLibraryFilters({
     }
 
     const items = []
-    if (javTab === 'idol') return items
+    if (isActorListTab(javTab)) return items
     const activeSearch = String(javSearchTerm || '').trim()
     if (activeSearch) {
       items.push({
@@ -343,7 +344,7 @@ export default function useLibraryFilters({
           setJavSearchInput('')
           updateJavFilters({
             javSearchTerm: '',
-            ...(javTab === 'idol'
+            ...(isActorListTab(javTab)
               ? { idolPage: 1 }
               : javTab === 'studio'
                 ? { studioPage: 1 }
@@ -495,7 +496,7 @@ export default function useLibraryFilters({
         javRandomMode: false,
         javRandomSeed: null,
       })
-    } else if (javTab === 'idol') {
+    } else if (isActorListTab(javTab)) {
       Object.assign(updates, {
         idolPage: 1,
         idolProfileFilters: createDefaultIdolProfileFilters(),

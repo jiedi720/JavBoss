@@ -1,3 +1,4 @@
+import { isActorListTab } from '@/utils/actorTabs'
 import Tooltip from '@/shared/ui/Tooltip'
 import VideoDirectoryFilter from '@/features/video/components/VideoDirectoryFilter'
 import { useEffect, useMemo, useRef, useState } from 'react'
@@ -473,19 +474,21 @@ export default function TopBar({
     Number.isFinite(activeSelectedCount) &&
     activeSelectedCount > 0
   const placeholder = isJavMode
-    ? javTab === 'idol'
-      ? zh('搜索女优名称', 'Search idol name')
-      : javTab === 'studio'
-        ? zh('搜索片商名称', 'Search studio name')
-        : javTab === 'series'
-          ? zh('搜索系列名称', 'Search series name')
-          : zh('搜索番号或标题', 'Search code or title')
+    ? javTab === 'actor'
+      ? zh('搜索男优名称', 'Search actor name')
+      : javTab === 'idol'
+        ? zh('搜索女优名称', 'Search idol name')
+        : javTab === 'studio'
+          ? zh('搜索片商名称', 'Search studio name')
+          : javTab === 'series'
+            ? zh('搜索系列名称', 'Search series name')
+            : zh('搜索番号或标题', 'Search code or title')
     : zh('搜索文件名', 'Search filename')
   const showFilterCluster =
     !isJavDownload &&
     (filterItems.length > 0 ||
       Boolean(onOpenFilterEditor) ||
-      ((!isJavMode || javTab !== 'idol') && hasActiveControlFilter))
+      ((!isJavMode || !isActorListTab(javTab)) && hasActiveControlFilter))
 
   return (
     <header
@@ -600,7 +603,7 @@ export default function TopBar({
             />
           ) : null}
 
-          {isJavMode && javTab === 'idol' ? (
+          {isJavMode && isActorListTab(javTab) ? (
             <IdolProfileFilters
               filters={idolProfileFilters}
               onChange={onIdolProfileFilterChange}

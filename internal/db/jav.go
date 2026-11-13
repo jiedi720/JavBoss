@@ -96,7 +96,8 @@ type JavUpdateInput struct {
 	ZhTitle           *string
 	StudioID          *int64
 	SeriesID          *int64
-	IdolIDs           *[]int64
+	IdolIDs           *[]int64 // Complete set of female actors (gender=female).
+	ActorIDs          *[]int64 // Complete set of male actors (gender=male).
 	UserTagIDs        *[]int64
 	ScrapedTagIDs     *[]int64
 	ReleaseUnix       *int64
@@ -118,6 +119,9 @@ type JavIdolUpdateInput struct {
 	Hips         *int
 	Cup          *int
 	Aliases      []string
+	// ExpectedGender rejects edits made through another gender's endpoint.
+	// Empty keeps the legacy behaviour for callers that do not distinguish actors.
+	ExpectedGender string
 }
 
 // JavStudioUpdateInput contains user-editable JAV studio fields.
@@ -517,7 +521,12 @@ func (store *Store) UpdateJav(ctx context.Context, javID int64, input JavUpdateI
 			}
 		}
 		if input.IdolIDs != nil {
-			if err := replaceJavIdolsTx(tx, javID, *input.IdolIDs); err != nil {
+			if err := replaceJavIdolsForGenderTx(tx, javID, *input.IdolIDs, models.ActorGenderFemale); err != nil {
+				return err
+			}
+		}
+		if input.ActorIDs != nil {
+			if err := replaceJavIdolsForGenderTx(tx, javID, *input.ActorIDs, models.ActorGenderMale); err != nil {
 				return err
 			}
 		}
@@ -962,20 +971,69 @@ func (store *Store) CreateJavScrapedTag(ctx context.Context, name string) (*mode
 	return &tag, nil
 }
 
-// CreateJavIdol creates an idol or returns the existing idol matching the name or an alias.
+// CreateJavIdol creates a female actor or returns the existing female actor
+// matching the name or an alias. It can never create a male actor.
 func (store *Store) CreateJavIdol(ctx context.Context, name string) (*models.JavIdol, error) {
+	return store.createJavIdolWithGender(ctx, name, models.ActorGenderFemale)
+}
+
+// CreateJavActor creates a male actor. Male actors are strictly manual: the
+// scrape/enrichment pipeline only ever calls CreateJavIdol / findOrCreate...Tx
+// with the female default.
+func (store *Store) CreateJavActor(ctx context.Context, name string) (*models.JavIdol, error) {
+	return store.createJavIdolWithGender(ctx, name, models.ActorGenderMale)
+}
+
+func (store *Store) createJavIdolWithGender(ctx context.Context, name, gender string) (*models.JavIdol, error) {
+	if !models.IsValidActorGender(gender) {
+		return nil, fmt.Errorf("invalid actor gender %q", gender)
+	}
 	var idol models.JavIdol
 	if err := store.conn.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		resolved, err := findOrCreateJavIdolByNameOrAliasTx(tx, name)
+		resolved, err := findOrCreateJavIdolByNameOrAliasWithGenderTx(tx, name, gender)
 		if err != nil {
 			return err
 		}
 		idol = resolved
 		return nil
 	}); err != nil {
-		return nil, fmt.Errorf("create jav idol %q: %w", strings.TrimSpace(name), err)
+		return nil, fmt.Errorf("create jav actor %q: %w", strings.TrimSpace(name), err)
 	}
 	return &idol, nil
+}
+
+// DeleteJavIdol removes a manually managed actor and every dependent row in one
+// transaction so no orphan associations, aliases or favourite entries remain.
+// expectedGender is optional; when set, deleting an actor of the other gender
+// is rejected (used by the gender-specific endpoints).
+func (store *Store) DeleteJavIdol(ctx context.Context, idolID int64, expectedGender string) error {
+	if idolID <= 0 {
+		return errors.New("actor id must be positive")
+	}
+	return store.conn.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var actor models.JavIdol
+		if err := tx.Select("id", "gender").Where("id = ?", idolID).First(&actor).Error; err != nil {
+			return fmt.Errorf("find jav actor: %w", err)
+		}
+		if expectedGender != "" && actor.Gender != expectedGender {
+			return fmt.Errorf("actor %d belongs to gender %q, not %q", idolID, actor.Gender, expectedGender)
+		}
+		if err := tx.Where("jav_idol_id = ?", idolID).Delete(&models.JavIdolAlias{}).Error; err != nil {
+			return fmt.Errorf("delete jav actor aliases: %w", err)
+		}
+		if err := tx.Where("jav_idol_id = ?", idolID).Delete(&models.JavIdolMap{}).Error; err != nil {
+			return fmt.Errorf("delete jav actor maps: %w", err)
+		}
+		if err := tx.
+			Where("entity_type = ? AND entity_id = ?", JavFavoriteEntityIdol, idolID).
+			Delete(&models.JavFavoriteMap{}).Error; err != nil {
+			return fmt.Errorf("delete jav actor favourites: %w", err)
+		}
+		if err := tx.Where("id = ?", idolID).Delete(&models.JavIdol{}).Error; err != nil {
+			return fmt.Errorf("delete jav actor: %w", err)
+		}
+		return nil
+	})
 }
 
 // RenameJavTag renames a JAV tag.
@@ -1203,6 +1261,7 @@ func (store *Store) buildJavFilter(ctx context.Context, idolIDs []int64, tagIDs 
 		soloJavs := store.conn.WithContext(ctx).
 			Table("jav_idol_map jim_solo_count").
 			Select("jim_solo_count.jav_id").
+			Joins("JOIN jav_idol ji_solo_count ON ji_solo_count.id = jim_solo_count.jav_idol_id AND ji_solo_count.gender = ?", models.ActorGenderFemale).
 			Group("jim_solo_count.jav_id").
 			Having("COUNT(DISTINCT jim_solo_count.jav_idol_id) = 1")
 		q = q.Where("jav.id IN (?)", soloJavs)
@@ -1257,6 +1316,7 @@ func (store *Store) ListJavFilterOptions(ctx context.Context, idolIDs []int64, t
 	soloJavs := store.conn.WithContext(ctx).
 		Table("jav_idol_map jim_solo_option").
 		Select("jim_solo_option.jav_id").
+		Joins("JOIN jav_idol ji_solo_option ON ji_solo_option.id = jim_solo_option.jav_idol_id AND ji_solo_option.gender = ?", models.ActorGenderFemale).
 		Group("jim_solo_option.jav_id").
 		Having("COUNT(DISTINCT jim_solo_option.jav_idol_id) = 1")
 	if !filters.SoloOnly {
@@ -1271,11 +1331,12 @@ func (store *Store) ListJavFilterOptions(ctx context.Context, idolIDs []int64, t
 	idolQuery := store.conn.WithContext(ctx).
 		Table("(?) matched", matched()).
 		Joins("JOIN jav_idol_map jim_option ON jim_option.jav_id = matched.id").
-		Joins("JOIN jav_idol ji ON ji.id = jim_option.jav_idol_id")
+		Joins("JOIN jav_idol ji ON ji.id = jim_option.jav_idol_id").
+		Where("ji.gender = ?", models.ActorGenderFemale)
 	idolQuery = applyJavIdolSearch(idolQuery, optionSearches.Idol)
 	if err := idolQuery.
-		Select("ji.id, ji.name, ji.roman_name, ji.japanese_name, ji.chinese_name, COUNT(DISTINCT matched.id) AS work_count").
-		Group("ji.id, ji.name, ji.roman_name, ji.japanese_name, ji.chinese_name").
+		Select("ji.id, ji.gender, ji.name, ji.roman_name, ji.japanese_name, ji.chinese_name, COUNT(DISTINCT matched.id) AS work_count").
+		Group("ji.id, ji.gender, ji.name, ji.roman_name, ji.japanese_name, ji.chinese_name").
 		Order("work_count DESC, ji.name ASC, ji.id ASC").
 		Limit(limit).
 		Scan(&result.Idols).Error; err != nil {
@@ -1995,6 +2056,7 @@ func (store *Store) ListSeriesCoverCodes(ctx context.Context, seriesID int64, di
 // JavIdolSummary represents idol info with aggregated work count and cover selection.
 type JavIdolSummary struct {
 	ID            int64      `json:"id"`
+	Gender        string     `json:"gender"`
 	Name          string     `json:"name"`
 	Aliases       []string   `json:"aliases,omitempty" gorm:"-"`
 	RomanName     string     `json:"roman_name"`
@@ -2021,6 +2083,9 @@ type JavIdolIntRange struct {
 
 // JavIdolFilters contains optional profile ranges for the idol list.
 type JavIdolFilters struct {
+	// Gender restricts the list to female or male actors. Empty means female,
+	// which preserves the behaviour of every pre-existing caller.
+	Gender string
 	Height JavIdolIntRange
 	Age    JavIdolIntRange
 	Cup    JavIdolIntRange
@@ -2036,6 +2101,12 @@ type JavIdolCoverOption struct {
 	Title   string `json:"title"`
 	ZhTitle string `json:"zh_title"`
 	Solo    bool   `json:"solo"`
+}
+
+// applyJavIdolGender keeps female and male actor lists strictly separated. An
+// empty gender means female so pre-existing callers never see male actors.
+func applyJavIdolGender(q *gorm.DB, gender string) *gorm.DB {
+	return q.Where("ji.gender = ?", models.NormalizeActorGender(gender))
 }
 
 func applyJavIdolSearch(q *gorm.DB, search string) *gorm.DB {
@@ -2054,12 +2125,22 @@ func applyJavIdolSearch(q *gorm.DB, search string) *gorm.DB {
 	)
 }
 
-func (store *Store) buildVisibleSoloIdolCoverQuery(ctx context.Context, directoryIDs []int64) *gorm.DB {
+// buildVisibleSoloIdolCoverQuery finds a default cover for actors of the given
+// gender. The "solo" count only considers actors of that same gender so a work
+// with one actress and one male actor still counts as a solo work for both.
+// An empty gender keeps the legacy behaviour of counting every linked actor,
+// which is what shared favourite-group counts expect.
+func (store *Store) buildVisibleSoloIdolCoverQuery(ctx context.Context, directoryIDs []int64, gender string) *gorm.DB {
 	soloJavs := store.conn.WithContext(ctx).
 		Table("jav_idol_map jim_count").
-		Select("jim_count.jav_id").
+		Select("jim_count.jav_id")
+	if gender != "" {
+		soloJavs = soloJavs.
+			Joins("JOIN jav_idol ji_count ON ji_count.id = jim_count.jav_idol_id AND ji_count.gender = ?", models.NormalizeActorGender(gender))
+	}
+	soloJavs = soloJavs.
 		Group("jim_count.jav_id").
-		Having("COUNT(*) = 1")
+		Having("COUNT(DISTINCT jim_count.jav_idol_id) = 1")
 
 	query := store.conn.WithContext(ctx).
 		Table("jav_idol_map jim_solo").
@@ -2094,11 +2175,19 @@ func (store *Store) GetJavIdolSummary(ctx context.Context, idolID int64, directo
 	}
 
 	var item JavIdolSummary
+	var actorGender string
+	if err := store.conn.WithContext(ctx).
+		Table("jav_idol").
+		Select("gender").
+		Where("id = ?", idolID).
+		Scan(&actorGender).Error; err != nil {
+		return nil, fmt.Errorf("get jav actor gender: %w", err)
+	}
 	tx := store.conn.WithContext(ctx).
 		Table("jav_idol ji").
-		Select("ji.id, ji.name, ji.roman_name, ji.japanese_name, ji.chinese_name, ji.height_cm, ji.birth_date, ji.bust, ji.waist, ji.hips, ji.cup, COALESCE(idol_work_counts.work_count, 0) AS work_count, ji.cover_jav_id, COALESCE(NULLIF(cover_jav.code, ''), solo_idols.cover_code) AS cover_code, COALESCE(ji.cover_crop_left, 0.53) AS cover_crop_left, COALESCE(favorite_counts.favorite_count, 0) AS favorite_count").
+		Select("ji.id, ji.gender, ji.name, ji.roman_name, ji.japanese_name, ji.chinese_name, ji.height_cm, ji.birth_date, ji.bust, ji.waist, ji.hips, ji.cup, COALESCE(idol_work_counts.work_count, 0) AS work_count, ji.cover_jav_id, COALESCE(NULLIF(cover_jav.code, ''), solo_idols.cover_code) AS cover_code, COALESCE(ji.cover_crop_left, 0.53) AS cover_crop_left, COALESCE(favorite_counts.favorite_count, 0) AS favorite_count").
 		Joins("LEFT JOIN (?) idol_work_counts ON idol_work_counts.jav_idol_id = ji.id", store.buildVisibleIdolWorkCountQuery(ctx, directoryIDs)).
-		Joins("LEFT JOIN (?) solo_idols ON solo_idols.jav_idol_id = ji.id", store.buildVisibleSoloIdolCoverQuery(ctx, directoryIDs)).
+		Joins("LEFT JOIN (?) solo_idols ON solo_idols.jav_idol_id = ji.id", store.buildVisibleSoloIdolCoverQuery(ctx, directoryIDs, actorGender)).
 		Joins("LEFT JOIN jav cover_jav ON cover_jav.id = ji.cover_jav_id").
 		Joins("LEFT JOIN (?) favorite_counts ON favorite_counts.jav_idol_id = ji.id", store.buildIdolFavoriteCountQuery(ctx)).
 		Where("ji.id = ?", idolID).
@@ -2117,17 +2206,25 @@ func (store *Store) GetJavIdolSummary(ctx context.Context, idolID int64, directo
 	return &items[0], nil
 }
 
-// ResolveJavIdols returns lightweight idol labels for URL/filter display.
-func (store *Store) ResolveJavIdols(ctx context.Context, ids []int64) ([]JavIdolSummary, error) {
+// ResolveJavIdols returns lightweight actor labels for URL/filter display.
+// gender is optional; the default is female so existing filter chips keep
+// resolving only actresses.
+func (store *Store) ResolveJavIdols(ctx context.Context, ids []int64, gender ...string) ([]JavIdolSummary, error) {
 	cleanIDs := uniqueInt64s(ids)
 	if len(cleanIDs) == 0 {
 		return []JavIdolSummary{}, nil
 	}
+	requestedGender := ""
+	if len(gender) > 0 {
+		requestedGender = gender[0]
+	}
 
 	var items []JavIdolSummary
-	if err := store.conn.WithContext(ctx).
-		Table("jav_idol ji").
-		Select("ji.id, ji.name").
+	query := store.conn.WithContext(ctx).
+		Table("jav_idol ji")
+	query = applyJavIdolGender(query, requestedGender)
+	if err := query.
+		Select("ji.id, ji.gender, ji.name").
 		Where("ji.id IN ?", cleanIDs).
 		Order("ji.name").
 		Scan(&items).Error; err != nil {
@@ -2140,15 +2237,23 @@ func (store *Store) ResolveJavIdols(ctx context.Context, ids []int64) ([]JavIdol
 }
 
 // ListJavIdolOptions returns all idols for edit selectors.
-func (store *Store) ListJavIdolOptions(ctx context.Context, search string, limit, offset int, directoryIDs []int64) ([]JavIdolSummary, int64, error) {
+// ListJavIdolOptions returns actors for edit selectors. When gender is supplied
+// only actors of that gender are returned; the default is female so existing
+// selectors keep showing only actresses.
+func (store *Store) ListJavIdolOptions(ctx context.Context, search string, limit, offset int, directoryIDs []int64, gender ...string) ([]JavIdolSummary, int64, error) {
 	if limit <= 0 {
 		limit = 100
 	}
 	if offset < 0 {
 		offset = 0
 	}
+	requestedGender := ""
+	if len(gender) > 0 {
+		requestedGender = gender[0]
+	}
 
 	base := store.conn.WithContext(ctx).Table("jav_idol ji")
+	base = applyJavIdolGender(base, requestedGender)
 	base = applyJavIdolSearch(base, search)
 
 	var total int64
@@ -2158,7 +2263,7 @@ func (store *Store) ListJavIdolOptions(ctx context.Context, search string, limit
 
 	var items []JavIdolSummary
 	if err := base.
-		Select("ji.id, ji.name, ji.roman_name, ji.japanese_name, ji.chinese_name, ji.height_cm, ji.birth_date, ji.bust, ji.waist, ji.hips, ji.cup, COALESCE(idol_work_counts.work_count, 0) AS work_count, COALESCE(ji.cover_crop_left, 0.53) AS cover_crop_left").
+		Select("ji.id, ji.gender, ji.name, ji.roman_name, ji.japanese_name, ji.chinese_name, ji.height_cm, ji.birth_date, ji.bust, ji.waist, ji.hips, ji.cup, COALESCE(idol_work_counts.work_count, 0) AS work_count, COALESCE(ji.cover_crop_left, 0.53) AS cover_crop_left").
 		Joins("LEFT JOIN (?) idol_work_counts ON idol_work_counts.jav_idol_id = ji.id", store.buildVisibleIdolWorkCountQuery(ctx, directoryIDs)).
 		Order("ji.name ASC, ji.id ASC").
 		Limit(limit).
@@ -2173,7 +2278,8 @@ func (store *Store) ListJavIdolOptions(ctx context.Context, search string, limit
 	return items, total, nil
 }
 
-// ListJavIdols returns idols ordered by selected sort with pagination.
+// ListJavIdols returns actors of one gender ordered by selected sort with
+// pagination. JavIdolFilters.Gender selects the gender (empty = female).
 func (store *Store) ListJavIdols(ctx context.Context, search, sort string, limit, offset int, directoryIDs []int64, favoriteGroupID int64, filterOptions ...JavIdolFilters) ([]JavIdolSummary, int64, error) {
 	if limit <= 0 {
 		limit = 100
@@ -2186,12 +2292,19 @@ func (store *Store) ListJavIdols(ctx context.Context, search, sort string, limit
 	if len(filterOptions) > 0 {
 		filters = filterOptions[0]
 	}
+	filters.Gender = models.NormalizeActorGender(filters.Gender)
+	// Male actors are managed manually and must remain visible even before they
+	// are linked to a work, so they use a LEFT JOIN based query.
+	if filters.Gender == models.ActorGenderMale {
+		return store.listMaleJavIdols(ctx, search, sort, limit, offset, directoryIDs, favoriteGroupID, filters)
+	}
 	filterDate := time.Now().UTC()
-	soloIdols := store.buildVisibleSoloIdolCoverQuery(ctx, directoryIDs)
+	soloIdols := store.buildVisibleSoloIdolCoverQuery(ctx, directoryIDs, filters.Gender)
 
 	countBase := store.conn.WithContext(ctx).
 		Table("jav_idol ji").
 		Joins("JOIN (?) solo_idols ON solo_idols.jav_idol_id = ji.id", soloIdols)
+	countBase = applyJavIdolGender(countBase, filters.Gender)
 	if favoriteGroupID > 0 {
 		countBase = countBase.Joins("JOIN jav_favorite_map jifm_filter ON jifm_filter.entity_id = ji.id AND jifm_filter.entity_type = ? AND jifm_filter.jav_favorite_group_id = ?", JavFavoriteEntityIdol, favoriteGroupID)
 	}
@@ -2204,6 +2317,47 @@ func (store *Store) ListJavIdols(ctx context.Context, search, sort string, limit
 	}
 
 	var items []JavIdolSummary
+	useFavoriteOrder := favoriteGroupID > 0 && (sort == "" || sort == "favorite_order" || sort == "favorite" || sort == "manual_order")
+	order := javIdolSortOrder(sort, useFavoriteOrder)
+	base := store.conn.WithContext(ctx).
+		Table("jav_idol ji").
+		Joins("JOIN (?) solo_idols ON solo_idols.jav_idol_id = ji.id", soloIdols).
+		Joins("LEFT JOIN (?) favorite_counts ON favorite_counts.jav_idol_id = ji.id", store.buildIdolFavoriteCountQuery(ctx)).
+		Joins("JOIN jav_idol_map jim ON jim.jav_idol_id = ji.id").
+		Joins("JOIN jav j ON j.id = jim.jav_id").
+		Joins("JOIN video_location vl ON vl.jav_id = j.id").
+		Joins("JOIN directory d ON d.id = vl.directory_id").
+		Where(activeDirectoryWhereSQL("d"))
+	base = applyJavIdolGender(base, filters.Gender)
+	if favoriteGroupID > 0 {
+		base = base.Joins("JOIN jav_favorite_map jifm_filter ON jifm_filter.entity_id = ji.id AND jifm_filter.entity_type = ? AND jifm_filter.jav_favorite_group_id = ?", JavFavoriteEntityIdol, favoriteGroupID)
+	}
+	base = applyDirectoryFilter(base, "vl", directoryIDs)
+	base = applyJavIdolSearch(base, search)
+	base = applyJavIdolFilters(base, filters, filterDate)
+	if err := base.
+		Joins("LEFT JOIN jav cover_jav ON cover_jav.id = ji.cover_jav_id").
+		Select("ji.id, ji.gender, ji.name, ji.roman_name, ji.japanese_name, ji.chinese_name, ji.height_cm, ji.birth_date, ji.bust, ji.waist, ji.hips, ji.cup, COUNT(DISTINCT j.id) AS work_count, ji.cover_jav_id, COALESCE(NULLIF(cover_jav.code, ''), solo_idols.cover_code) AS cover_code, COALESCE(ji.cover_crop_left, 0.53) AS cover_crop_left, COALESCE(favorite_counts.favorite_count, 0) AS favorite_count").
+		Group("ji.id, ji.gender, ji.name, ji.roman_name, ji.japanese_name, ji.chinese_name, ji.height_cm, ji.birth_date, ji.bust, ji.waist, ji.hips, ji.cup, ji.cover_jav_id, cover_jav.code, ji.cover_crop_left, solo_idols.cover_code, favorite_counts.favorite_count").
+		Order(order).
+		Limit(limit).
+		Offset(offset).
+		Scan(&items).Error; err != nil {
+		return nil, 0, fmt.Errorf("list jav idols: %w", err)
+	}
+	if err := store.attachJavIdolAliases(ctx, items); err != nil {
+		return nil, 0, err
+	}
+
+	return items, total, nil
+}
+
+// javIdolSortOrder maps a list sort key to SQL. It is shared by the female and
+// male lists so both pages keep identical sorting behaviour.
+func javIdolSortOrder(sort string, useFavoriteOrder bool) string {
+	if useFavoriteOrder {
+		return "jifm_filter.sort_order ASC, ji.name ASC, ji.id ASC"
+	}
 	order := "work_count DESC, ji.name ASC"
 	switch sort {
 	case "recent", "recent_desc", "added", "created", "created_at":
@@ -2243,39 +2397,54 @@ func (store *Store) ListJavIdols(ctx context.Context, search, sort string, limit
 	default:
 		// ignore unknown values
 	}
-	useFavoriteOrder := favoriteGroupID > 0 && (sort == "" || sort == "favorite_order" || sort == "favorite" || sort == "manual_order")
-	if useFavoriteOrder {
-		order = "jifm_filter.sort_order ASC, ji.name ASC, ji.id ASC"
+	return order
+}
+
+// listMaleJavIdols lists manually managed male actors. Unlike the actress list
+// it uses LEFT JOINs so a freshly created actor with no linked work is visible.
+func (store *Store) listMaleJavIdols(ctx context.Context, search, sort string, limit, offset int, directoryIDs []int64, favoriteGroupID int64, filters JavIdolFilters) ([]JavIdolSummary, int64, error) {
+	filterDate := time.Now().UTC()
+	countBase := store.conn.WithContext(ctx).
+		Table("jav_idol ji").
+		Where("ji.gender = ?", models.ActorGenderMale)
+	if favoriteGroupID > 0 {
+		countBase = countBase.Joins("JOIN jav_favorite_map jifm_filter ON jifm_filter.entity_id = ji.id AND jifm_filter.entity_type = ? AND jifm_filter.jav_favorite_group_id = ?", JavFavoriteEntityIdol, favoriteGroupID)
 	}
+	countBase = applyJavIdolSearch(countBase, search)
+	countBase = applyJavIdolFilters(countBase, filters, filterDate)
+
+	var total int64
+	if err := countBase.Count(&total).Error; err != nil {
+		return nil, 0, fmt.Errorf("count male actors: %w", err)
+	}
+
+	useFavoriteOrder := favoriteGroupID > 0 && (sort == "" || sort == "favorite_order" || sort == "favorite" || sort == "manual_order")
+	order := javIdolSortOrder(sort, useFavoriteOrder)
 	base := store.conn.WithContext(ctx).
 		Table("jav_idol ji").
-		Joins("JOIN (?) solo_idols ON solo_idols.jav_idol_id = ji.id", soloIdols).
+		Joins("LEFT JOIN (?) work_counts ON work_counts.jav_idol_id = ji.id", store.buildVisibleIdolWorkCountQuery(ctx, directoryIDs)).
+		Joins("LEFT JOIN (?) solo_idols ON solo_idols.jav_idol_id = ji.id", store.buildVisibleSoloIdolCoverQuery(ctx, directoryIDs, models.ActorGenderMale)).
 		Joins("LEFT JOIN (?) favorite_counts ON favorite_counts.jav_idol_id = ji.id", store.buildIdolFavoriteCountQuery(ctx)).
-		Joins("JOIN jav_idol_map jim ON jim.jav_idol_id = ji.id").
-		Joins("JOIN jav j ON j.id = jim.jav_id").
-		Joins("JOIN video_location vl ON vl.jav_id = j.id").
-		Joins("JOIN directory d ON d.id = vl.directory_id").
-		Where(activeDirectoryWhereSQL("d"))
+		Joins("LEFT JOIN jav cover_jav ON cover_jav.id = ji.cover_jav_id").
+		Where("ji.gender = ?", models.ActorGenderMale)
 	if favoriteGroupID > 0 {
 		base = base.Joins("JOIN jav_favorite_map jifm_filter ON jifm_filter.entity_id = ji.id AND jifm_filter.entity_type = ? AND jifm_filter.jav_favorite_group_id = ?", JavFavoriteEntityIdol, favoriteGroupID)
 	}
-	base = applyDirectoryFilter(base, "vl", directoryIDs)
 	base = applyJavIdolSearch(base, search)
 	base = applyJavIdolFilters(base, filters, filterDate)
+
+	var items []JavIdolSummary
 	if err := base.
-		Joins("LEFT JOIN jav cover_jav ON cover_jav.id = ji.cover_jav_id").
-		Select("ji.id, ji.name, ji.roman_name, ji.japanese_name, ji.chinese_name, ji.height_cm, ji.birth_date, ji.bust, ji.waist, ji.hips, ji.cup, COUNT(DISTINCT j.id) AS work_count, ji.cover_jav_id, COALESCE(NULLIF(cover_jav.code, ''), solo_idols.cover_code) AS cover_code, COALESCE(ji.cover_crop_left, 0.53) AS cover_crop_left, COALESCE(favorite_counts.favorite_count, 0) AS favorite_count").
-		Group("ji.id, ji.name, ji.roman_name, ji.japanese_name, ji.chinese_name, ji.height_cm, ji.birth_date, ji.bust, ji.waist, ji.hips, ji.cup, ji.cover_jav_id, cover_jav.code, ji.cover_crop_left, solo_idols.cover_code, favorite_counts.favorite_count").
+		Select("ji.id, ji.gender, ji.name, ji.roman_name, ji.japanese_name, ji.chinese_name, ji.height_cm, ji.birth_date, ji.bust, ji.waist, ji.hips, ji.cup, COALESCE(work_counts.work_count, 0) AS work_count, ji.cover_jav_id, COALESCE(NULLIF(cover_jav.code, ''), solo_idols.cover_code) AS cover_code, COALESCE(ji.cover_crop_left, 0.53) AS cover_crop_left, COALESCE(favorite_counts.favorite_count, 0) AS favorite_count").
 		Order(order).
 		Limit(limit).
 		Offset(offset).
 		Scan(&items).Error; err != nil {
-		return nil, 0, fmt.Errorf("list jav idols: %w", err)
+		return nil, 0, fmt.Errorf("list male actors: %w", err)
 	}
 	if err := store.attachJavIdolAliases(ctx, items); err != nil {
 		return nil, 0, err
 	}
-
 	return items, total, nil
 }
 
@@ -2360,6 +2529,10 @@ func (store *Store) UpdateJavIdol(ctx context.Context, idolID int64, input JavId
 		var existing models.JavIdol
 		if err := tx.Where("id = ?", idolID).First(&existing).Error; err != nil {
 			return fmt.Errorf("find jav idol: %w", err)
+		}
+		// A male endpoint must not be able to edit a female actor and vice versa.
+		if input.ExpectedGender != "" && existing.Gender != input.ExpectedGender {
+			return fmt.Errorf("actor %d belongs to gender %q, not %q", idolID, existing.Gender, input.ExpectedGender)
 		}
 
 		var duplicateNameCount int64
@@ -2678,7 +2851,7 @@ func (store *Store) FindIdolSoloCode(ctx context.Context, idolID int64) (string,
 // ListIdolsMissingProfile returns idols that have no profile fields populated.
 func (store *Store) ListIdolsMissingProfile(ctx context.Context) ([]models.JavIdol, error) {
 	var idols []models.JavIdol
-	soloIdols := store.buildVisibleSoloIdolCoverQuery(ctx, nil)
+	soloIdols := store.buildVisibleSoloIdolCoverQuery(ctx, nil, models.ActorGenderFemale)
 	if err := store.conn.WithContext(ctx).
 		Joins("JOIN (?) solo_idols ON solo_idols.jav_idol_id = jav_idol.id", soloIdols).
 		Where(`
@@ -3752,14 +3925,30 @@ func ensureJavIdolsTx(tx *gorm.DB, names []string) ([]models.JavIdol, error) {
 }
 
 func findOrCreateJavIdolByNameOrAliasTx(tx *gorm.DB, name string) (models.JavIdol, error) {
+	return findOrCreateJavIdolByNameOrAliasWithGenderTx(tx, name, models.ActorGenderFemale)
+}
+
+// findOrCreateJavIdolByNameOrAliasWithGenderTx never resolves a name/alias to an
+// actor of the other gender: reusing one would silently mix male and female
+// associations. New rows always carry an explicit gender.
+func findOrCreateJavIdolByNameOrAliasWithGenderTx(tx *gorm.DB, name, gender string) (models.JavIdol, error) {
 	name = strings.TrimSpace(name)
 	if name == "" {
-		return models.JavIdol{}, errors.New("jav idol name cannot be empty")
+		return models.JavIdol{}, errors.New("jav actor name cannot be empty")
+	}
+	if !models.IsValidActorGender(gender) {
+		return models.JavIdol{}, fmt.Errorf("invalid actor gender %q", gender)
+	}
+	checkGender := func(idol models.JavIdol) (models.JavIdol, error) {
+		if idol.Gender != gender {
+			return models.JavIdol{}, fmt.Errorf("actor %q belongs to gender %q, not %q", name, idol.Gender, gender)
+		}
+		return idol, nil
 	}
 	var idol models.JavIdol
 	err := tx.Where("name = ?", name).First(&idol).Error
 	if err == nil {
-		return idol, nil
+		return checkGender(idol)
 	}
 	if !errors.Is(err, gorm.ErrRecordNotFound) {
 		return models.JavIdol{}, err
@@ -3775,9 +3964,9 @@ func findOrCreateJavIdolByNameOrAliasTx(tx *gorm.DB, name string) (models.JavIdo
 		return models.JavIdol{}, err
 	}
 	if idol.ID > 0 {
-		return idol, nil
+		return checkGender(idol)
 	}
-	idol = models.JavIdol{Name: name}
+	idol = models.JavIdol{Name: name, Gender: gender}
 	if err := tx.Create(&idol).Error; err != nil {
 		return models.JavIdol{}, err
 	}
@@ -3814,6 +4003,13 @@ func (store *Store) MergeJavIdols(ctx context.Context, canonicalID int64, source
 		}
 		if len(sources) != len(cleanSourceIDs) {
 			return gorm.ErrRecordNotFound
+		}
+		// Merging across genders would attach a male actor's works to an actress
+		// (or the other way round) and break the strict gender split.
+		for _, source := range sources {
+			if source.Gender != canonical.Gender {
+				return fmt.Errorf("cannot merge actor %d (%s) into actor %d (%s): genders differ", source.ID, source.Gender, canonical.ID, canonical.Gender)
+			}
 		}
 		if err := moveJavIdolAliasesTx(tx, canonical, sources); err != nil {
 			return err
@@ -4094,30 +4290,46 @@ func inheritJavIdolCoverTx(tx *gorm.DB, canonical models.JavIdol, sources []mode
 	return nil
 }
 
+// replaceJavIdolsTx replaces the actress (female) associations of a work. It is
+// kept as a wrapper so the manual/auto scrape pipeline never touches male links.
 func replaceJavIdolsTx(tx *gorm.DB, javID int64, idolIDs []int64) error {
+	return replaceJavIdolsForGenderTx(tx, javID, idolIDs, models.ActorGenderFemale)
+}
+
+// replaceJavIdolsForGenderTx replaces only the associations whose actor has the
+// requested gender. This is the root-cause fix for the previous full-table
+// delete: editing actresses used to silently drop every male association (and
+// vice versa). Supplying an id of the other gender, an unknown id or a duplicate
+// is handled explicitly.
+func replaceJavIdolsForGenderTx(tx *gorm.DB, javID int64, idolIDs []int64, gender string) error {
 	if javID <= 0 {
 		return errors.New("jav id cannot be zero")
 	}
+	if !models.IsValidActorGender(gender) {
+		return fmt.Errorf("invalid actor gender %q", gender)
+	}
 	cleanIDs := uniqueInt64s(idolIDs)
+	if len(cleanIDs) > 0 {
+		var count int64
+		if err := tx.Model(&models.JavIdol{}).
+			Where("id IN ? AND gender = ?", cleanIDs, gender).
+			Count(&count).Error; err != nil {
+			return fmt.Errorf("find jav actors: %w", err)
+		}
+		if count != int64(len(cleanIDs)) {
+			return fmt.Errorf("invalid %s actor id", gender)
+		}
+	}
+
 	if err := tx.
-		Where("jav_id = ?", javID).
-		Delete(&models.JavIdolMap{}).Error; err != nil {
-		return fmt.Errorf("delete jav idol maps: %w", err)
+		Exec(`DELETE FROM jav_idol_map WHERE jav_id = ? AND jav_idol_id IN (SELECT id FROM jav_idol WHERE gender = ?)`, javID, gender).
+		Error; err != nil {
+		return fmt.Errorf("delete %s jav actor maps: %w", gender, err)
 	}
 
 	if len(cleanIDs) == 0 {
 		return nil
 	}
-	var count int64
-	if err := tx.Model(&models.JavIdol{}).
-		Where("id IN ?", cleanIDs).
-		Count(&count).Error; err != nil {
-		return fmt.Errorf("find jav idols: %w", err)
-	}
-	if count != int64(len(cleanIDs)) {
-		return errors.New("invalid idol_id")
-	}
-
 	now := time.Now()
 	rows := make([]models.JavIdolMap, 0, len(cleanIDs))
 	for _, idolID := range cleanIDs {
@@ -4127,11 +4339,8 @@ func replaceJavIdolsTx(tx *gorm.DB, javID int64, idolIDs []int64) error {
 			CreatedAt: now,
 		})
 	}
-	if len(rows) == 0 {
-		return nil
-	}
 	if err := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&rows).Error; err != nil {
-		return fmt.Errorf("insert jav idol maps: %w", err)
+		return fmt.Errorf("insert jav actor maps: %w", err)
 	}
 	return nil
 }

@@ -1,3 +1,4 @@
+import { isActorListTab } from '@/utils/actorTabs'
 import { createListResource } from '@/query/createListResource'
 import {
   videoQuery,
@@ -53,10 +54,12 @@ export function createListResources({ get, set }) {
           error: `${name}Error`,
         },
         key: (state) => listQueryKey(definition.query, state),
-        active: (state) =>
-          name === 'video'
-            ? state.viewMode === 'video'
-            : state.viewMode === 'jav' && state.javTab === (name === 'jav' ? 'list' : name),
+        active: (state) => {
+          if (name === 'video') return state.viewMode === 'video'
+          if (state.viewMode !== 'jav') return false
+          if (name === 'idol') return isActorListTab(state.javTab)
+          return state.javTab === (name === 'jav' ? 'list' : name)
+        },
         waterfall: (state) => Boolean(state.waterfallModes?.[name]),
         ...definition,
       }),

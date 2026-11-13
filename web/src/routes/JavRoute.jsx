@@ -1,3 +1,4 @@
+import { isActorListTab } from '@/utils/actorTabs'
 import { javQueryKey, idolQueryKey, studioQueryKey, seriesQueryKey } from '@/query/listQueries'
 import { useStore } from '@/store'
 import { useShallow } from 'zustand/react/shallow'
@@ -154,10 +155,9 @@ export default function JavRoute({
     }))
   )
   const requestKey = useStore((state) =>
-    (
-      ({ idol: idolQueryKey, studio: studioQueryKey, series: seriesQueryKey })[state.javTab] ||
-      javQueryKey
-    )(state)
+    (isActorListTab(state.javTab)
+      ? idolQueryKey
+      : { studio: studioQueryKey, series: seriesQueryKey }[state.javTab] || javQueryKey)(state)
   )
   const javSortResolution = resolveJavSort({
     javSearchTerm,
@@ -197,7 +197,7 @@ export default function JavRoute({
   const activeJavLoading =
     javTab === 'download'
       ? false
-      : javTab === 'idol'
+      : isActorListTab(javTab)
         ? idolLoading
         : javTab === 'studio'
           ? studioLoading
@@ -206,7 +206,7 @@ export default function JavRoute({
             : javLoading
   useEffect(() => {
     if (!hydrated || !configLoaded) return
-    if (javTab === 'idol') {
+    if (isActorListTab(javTab)) {
       loadJavIdols()
       loadJavFavoriteGroups('idol')
     } else if (javTab === 'studio') {

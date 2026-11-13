@@ -1,3 +1,4 @@
+import { isActorListTab } from '@/utils/actorTabs'
 import { buildUrlFromState, normalizeUrlStateFromStore } from '@/utils/urlState'
 import { normalizeIdolSort, normalizeJavSort, normalizeIdolProfileFilters } from '@/constants/jav'
 import { normalizeVideoSort } from '@/constants/video'
@@ -57,12 +58,17 @@ export function buildJavQueryLink(state, options = {}, pathname = '/') {
   jav.seed = jav.random ? (options.seed ?? state.javRandomSeed) : null
   jav.page =
     options.page ??
-    ({ idol: state.idolPage, studio: state.studioPage, series: state.seriesPage }[tab] ||
+    ({
+      idol: state.idolPage,
+      actor: state.idolPage,
+      studio: state.studioPage,
+      series: state.seriesPage,
+    }[tab] ||
       state.javPage)
-  const normalizeSort = tab === 'idol' ? normalizeIdolSort : normalizeJavSort
+  const normalizeSort = isActorListTab(tab) ? normalizeIdolSort : normalizeJavSort
   jav.tempSort = has(options, 'tempSort')
     ? normalizeSort(options.tempSort, '')
-    : tab === 'idol'
+    : isActorListTab(tab)
       ? state.idolTempSort
       : state.javTempSort
   return buildUrlFromState({ ...current, view: 'jav', jav }, pathname)

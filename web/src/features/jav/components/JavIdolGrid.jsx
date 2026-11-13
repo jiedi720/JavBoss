@@ -1,11 +1,18 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded'
+import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded'
 import EditRoundedIcon from '@mui/icons-material/EditRounded'
 import PhotoCameraRoundedIcon from '@mui/icons-material/PhotoCameraRounded'
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded'
 import StarBorderRoundedIcon from '@mui/icons-material/StarBorderRounded'
 import StarRoundedIcon from '@mui/icons-material/StarRounded'
-import { fetchJavIdolOptions, mergeJavIdols, updateJavIdol } from '@/features/jav/api'
+import {
+  deleteJavIdol,
+  fetchJavIdolOptions,
+  mergeJavIdols,
+  updateJavIdol,
+} from '@/features/jav/api'
+import { actorGenderOf, actorTerms } from '@/utils/actorTabs'
 import AppModal from '@/shared/ui/AppModal'
 import JavIdolCoverModal, {
   IDOL_COVER_DEFAULT_CROP_LEFT,
@@ -33,6 +40,7 @@ export function getIdolCardLayoutProps() {
 }
 
 export default function JavIdolGrid({
+  gender = 'female',
   items,
   onSelectIdol,
   onOpenFavorites,
@@ -41,8 +49,10 @@ export default function JavIdolGrid({
   onMerged,
 }) {
   const { coverAspectPercent } = getIdolCardLayoutProps()
+  const terms = actorTerms(gender)
   const [coverEditorItem, setCoverEditorItem] = useState(null)
   const [editItem, setEditItem] = useState(null)
+  const [deletingId, setDeletingId] = useState(0)
   const [coverOverrides, setCoverOverrides] = useState(() => new Map())
   const displayItems = useMemo(() => {
     if (!Array.isArray(items)) return []
@@ -53,11 +63,35 @@ export default function JavIdolGrid({
     })
   }, [coverOverrides, items])
 
+  const handleDelete = async (target) => {
+    const id = Number(target?.id)
+    if (!Number.isFinite(id) || id <= 0 || deletingId) return
+    const name = String(target?.name || '').trim() || zh('未命名', 'Unnamed')
+    const confirmed = window.confirm(
+      zh(
+        `确定删除${terms.zhNoun}「${name}」吗？该${terms.zhNoun}与作品的关联会一并解除，此操作无法撤回。`,
+        `Delete ${terms.enSingular} "${name}"? All linked works will be unlinked. This cannot be undone.`
+      )
+    )
+    if (!confirmed) return
+    setDeletingId(id)
+    try {
+      await deleteJavIdol(id, gender)
+      setCoverEditorItem(null)
+      setEditItem(null)
+      onMerged?.()
+    } catch (err) {
+      window.alert(getErrorMessage(err))
+    } finally {
+      setDeletingId(0)
+    }
+  }
+
   const hasItems = displayItems.length > 0
   if (!hasItems) {
     return (
       <div className="flex min-h-[200px] items-center justify-center rounded border border-dashed border-gray-200 text-gray-500 dark:border-ui-border dark:text-ui-faint">
-        {zh('暂无女优数据', 'No idol data')}
+        {zh(`暂无${terms.zhNoun}数据`, `No ${terms.enSingular} data`)}
       </div>
     )
   }
@@ -72,10 +106,13 @@ export default function JavIdolGrid({
           <IdolCard
             key={item.id || item.name}
             item={item}
+            gender={gender}
             onSelectIdol={onSelectIdol}
             onOpenFavorites={onOpenFavorites}
             onOpenCoverEditor={setCoverEditorItem}
             onOpenEditor={setEditItem}
+            onDelete={handleDelete}
+            deleting={deletingId === Number(item?.id)}
             href={buildIdolUrl?.(item)}
             coverAspectPercent={coverAspectPercent}
             preferChineseName={preferChineseName}
@@ -86,6 +123,7 @@ export default function JavIdolGrid({
         key={`cover-${coverEditorItem?.id || 'closed'}`}
         open={Boolean(coverEditorItem)}
         item={coverEditorItem}
+        gender={gender}
         preferChineseName={preferChineseName}
         onClose={() => setCoverEditorItem(null)}
         onSaved={(updated) => {
@@ -102,6 +140,7 @@ export default function JavIdolGrid({
         key={`edit-${editItem?.id || 'closed'}`}
         open={Boolean(editItem)}
         item={editItem}
+        gender={gender}
         preferChineseName={preferChineseName}
         onClose={() => setEditItem(null)}
         onSaved={(updated) => {
@@ -124,16 +163,20 @@ export default function JavIdolGrid({
 }
 
 export function IdolCard({
+  gender = 'female',
   item,
   onSelectIdol,
   onOpenFavorites,
   onOpenCoverEditor,
   onOpenEditor,
+  onDelete,
+  deleting = false,
   href,
   coverAspectPercent,
   showWorkCount = true,
   preferChineseName = false,
 }) {
+  const terms = actorTerms(gender)
   const coverCode = String(item?.cover_code || '').trim()
   const cover = coverCode ? `/jav/${encodeURIComponent(coverCode)}/cover` : null
   const coverCropLeft = normalizeIdolCoverCropLeft(
@@ -304,8 +347,8 @@ export function IdolCard({
               ? 'bg-amber-400 text-amber-950 hover:bg-amber-300'
               : 'bg-black/65 text-white opacity-0 hover:bg-black/80 group-hover:opacity-100'
           }`}
-          title={zh('加入女优收藏夹', 'Add to idol favorite groups')}
-          aria-label={zh('加入女优收藏夹', 'Add to idol favorite groups')}
+          title={zh(`加入${terms.zhNoun}收藏夹`, `Add to ${terms.enSingular} favorite groups`)}
+          aria-label={zh(`加入${terms.zhNoun}收藏夹`, `Add to ${terms.enSingular} favorite groups`)}
           onClick={handleOpenFavorites}
         >
           {favoriteCount > 0 ? (
@@ -319,8 +362,11 @@ export function IdolCard({
           className={`card-hover-focus-visible absolute bottom-2 left-2 flex h-7 w-7 items-center justify-center rounded-full text-white opacity-0 shadow-lg shadow-black/60 transition-opacity group-hover:opacity-100 ${
             canOpenJavDB ? 'bg-black/70 hover:bg-black/85' : 'cursor-not-allowed bg-black/30'
           }`}
-          title={zh('在 JavDB 中搜索女优', 'Search for idol in JavDB')}
-          aria-label={zh('在 JavDB 中搜索女优', 'Search for idol in JavDB')}
+          title={zh(`在 JavDB 中搜索${terms.zhNoun}`, `Search for ${terms.enSingular} in JavDB`)}
+          aria-label={zh(
+            `在 JavDB 中搜索${terms.zhNoun}`,
+            `Search for ${terms.enSingular} in JavDB`
+          )}
           disabled={!canOpenJavDB}
           onClick={handleOpenJavDB}
         >
@@ -329,17 +375,33 @@ export function IdolCard({
         <button
           type="button"
           className="card-hover-focus-visible absolute bottom-2 right-10 flex h-7 w-7 items-center justify-center rounded-full bg-black/70 text-white opacity-0 shadow-lg shadow-black/60 transition-opacity hover:bg-black/85 group-hover:opacity-100"
-          title={zh('编辑女优封面', 'Edit idol cover')}
-          aria-label={zh('编辑女优封面', 'Edit idol cover')}
+          title={zh(`编辑${terms.zhNoun}封面`, `Edit ${terms.enSingular} cover`)}
+          aria-label={zh(`编辑${terms.zhNoun}封面`, `Edit ${terms.enSingular} cover`)}
           onClick={handleOpenCoverEditor}
         >
           <PhotoCameraRoundedIcon sx={{ fontSize: 16 }} />
         </button>
+        {onDelete ? (
+          <button
+            type="button"
+            className="card-hover-focus-visible absolute bottom-2 right-[4.5rem] flex h-7 w-7 items-center justify-center rounded-full bg-black/70 text-white opacity-0 shadow-lg shadow-black/60 transition-opacity hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60 group-hover:opacity-100"
+            title={zh(`删除${terms.zhNoun}`, `Delete ${terms.enSingular}`)}
+            aria-label={zh(`删除${terms.zhNoun}`, `Delete ${terms.enSingular}`)}
+            disabled={deleting}
+            onClick={(event) => {
+              event.preventDefault()
+              event.stopPropagation()
+              onDelete(item)
+            }}
+          >
+            <DeleteOutlineRoundedIcon sx={{ fontSize: 16 }} />
+          </button>
+        ) : null}
         <button
           type="button"
           className="card-hover-focus-visible absolute bottom-2 right-2 flex h-7 w-7 items-center justify-center rounded-full bg-black/70 text-white opacity-0 shadow-lg shadow-black/60 transition-opacity hover:bg-black/85 group-hover:opacity-100"
-          title={zh('编辑女优信息', 'Edit idol info')}
-          aria-label={zh('编辑女优信息', 'Edit idol info')}
+          title={zh(`编辑${terms.zhNoun}信息`, `Edit ${terms.enSingular} info`)}
+          aria-label={zh(`编辑${terms.zhNoun}信息`, `Edit ${terms.enSingular} info`)}
           onClick={handleOpenEditor}
         >
           <EditRoundedIcon sx={{ fontSize: 16 }} />
@@ -392,6 +454,7 @@ export function IdolCard({
 
 export function JavIdolEditModal({
   open,
+  gender,
   item,
   preferChineseName = false,
   onClose,
@@ -402,6 +465,8 @@ export function JavIdolEditModal({
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [mergeOpen, setMergeOpen] = useState(false)
+  const actorGender = actorGenderOf(gender, item)
+  const terms = actorTerms(actorGender)
   const idolId = Number(item?.id)
   const displayName = displayIdolOptionName(item, preferChineseName)
 
@@ -443,7 +508,7 @@ export function JavIdolEditModal({
     setError('')
     try {
       const payload = buildIdolEditPayload(form)
-      const updated = await updateJavIdol(idolId, payload)
+      const updated = await updateJavIdol(idolId, payload, actorGender)
       const normalizedUpdated = {
         ...updated,
         aliases: Array.isArray(updated?.aliases) ? updated.aliases : [],
@@ -461,7 +526,7 @@ export function JavIdolEditModal({
   return (
     <>
       <AppModal
-        ariaLabel={zh('编辑女优信息', 'Edit idol info')}
+        ariaLabel={zh(`编辑${terms.zhNoun}信息`, `Edit ${terms.enSingular} info`)}
         className="p-4"
         closeDisabled={saving}
         contentClassName="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-lg bg-white dark:bg-ui-surface shadow-2xl"
@@ -473,7 +538,7 @@ export function JavIdolEditModal({
         <div className="flex items-center justify-between border-b px-4 py-3">
           <div className="min-w-0">
             <div className="text-base font-semibold text-gray-950 dark:text-ui-text">
-              {zh('编辑女优信息', 'Edit idol info')}
+              {zh(`编辑${terms.zhNoun}信息`, `Edit ${terms.enSingular} info`)}
             </div>
             <div className="truncate text-xs text-gray-500 dark:text-ui-faint">{displayName}</div>
           </div>
@@ -575,7 +640,7 @@ export function JavIdolEditModal({
               className="rounded border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 dark:border-ui-border dark:text-ui-secondary dark:hover:bg-ui-hover"
               onClick={() => setMergeOpen(true)}
             >
-              {zh('合并到其它女优', 'Merge into another idol')}
+              {zh(`合并到其它${terms.zhNoun}`, `Merge into another ${terms.enSingular}`)}
             </button>
           </div>
 
@@ -605,6 +670,7 @@ export function JavIdolEditModal({
       <JavIdolMergeModal
         open={mergeOpen}
         item={item}
+        gender={actorGender}
         preferChineseName={preferChineseName}
         onClose={() => setMergeOpen(false)}
         onMerged={onMerged}
@@ -688,7 +754,7 @@ function AliasEditor({ aliases = [], inputValue = '', onInputChange, onAdd, onRe
   )
 }
 
-function JavIdolMergeModal({ open, item, preferChineseName = false, onClose, onMerged }) {
+function JavIdolMergeModal({ open, gender, item, preferChineseName = false, onClose, onMerged }) {
   const [search, setSearch] = useState('')
   const [options, setOptions] = useState([])
   const [selectedId, setSelectedId] = useState(0)
@@ -697,6 +763,8 @@ function JavIdolMergeModal({ open, item, preferChineseName = false, onClose, onM
   const [error, setError] = useState('')
   const sourceId = Number(item?.id)
   const sourceName = rawIdolName(item)
+  const actorGender = actorGenderOf(gender, item)
+  const terms = actorTerms(actorGender)
 
   useEffect(() => {
     if (!open) {
@@ -714,7 +782,7 @@ function JavIdolMergeModal({ open, item, preferChineseName = false, onClose, onM
     const timer = window.setTimeout(() => {
       setLoading(true)
       setError('')
-      fetchJavIdolOptions({ limit: 30, search })
+      fetchJavIdolOptions({ limit: 30, search, gender: actorGender })
         .then((resp) => {
           if (cancelled) return
           const items = Array.isArray(resp?.items) ? resp.items : []
@@ -731,7 +799,7 @@ function JavIdolMergeModal({ open, item, preferChineseName = false, onClose, onM
       cancelled = true
       window.clearTimeout(timer)
     }
-  }, [open, search, sourceId])
+  }, [actorGender, open, search, sourceId])
 
   if (!open || !item) return null
 
@@ -749,6 +817,7 @@ function JavIdolMergeModal({ open, item, preferChineseName = false, onClose, onM
       const updated = await mergeJavIdols({
         canonicalId: selectedId,
         mergeIds: [sourceId],
+        gender: actorGender,
       })
       onMerged?.(updated)
     } catch (err) {
@@ -760,7 +829,7 @@ function JavIdolMergeModal({ open, item, preferChineseName = false, onClose, onM
 
   return (
     <AppModal
-      ariaLabel={zh('合并女优', 'Merge idol')}
+      ariaLabel={zh(`合并${terms.zhNoun}`, `Merge ${terms.enSingular}`)}
       className="p-4"
       closeDisabled={saving}
       contentClassName="flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-lg bg-white dark:bg-ui-surface shadow-2xl"
@@ -772,10 +841,13 @@ function JavIdolMergeModal({ open, item, preferChineseName = false, onClose, onM
       <div className="flex items-center justify-between border-b px-4 py-3">
         <div className="min-w-0">
           <div className="text-base font-semibold text-gray-950 dark:text-ui-text">
-            {zh('合并女优', 'Merge idol')}
+            {zh(`合并${terms.zhNoun}`, `Merge ${terms.enSingular}`)}
           </div>
           <div className="truncate text-xs text-gray-500 dark:text-ui-faint">
-            {zh(`将 ${sourceName} 合并到目标女优`, `Merge ${sourceName} into target idol`)}
+            {zh(
+              `将 ${sourceName} 合并到目标${terms.zhNoun}`,
+              `Merge ${sourceName} into target ${terms.enSingular}`
+            )}
           </div>
         </div>
         <button
@@ -801,7 +873,10 @@ function JavIdolMergeModal({ open, item, preferChineseName = false, onClose, onM
               setSelectedId(0)
             }}
             className="form-field w-full rounded border border-gray-300 py-2 pl-9 pr-3 text-sm outline-none focus:border-gray-900"
-            placeholder={zh('搜索要合并到的目标女优', 'Search target idol to merge into')}
+            placeholder={zh(
+              `搜索要合并到的目标${terms.zhNoun}`,
+              `Search target ${terms.enSingular} to merge into`
+            )}
           />
         </label>
 
@@ -848,7 +923,7 @@ function JavIdolMergeModal({ open, item, preferChineseName = false, onClose, onM
             </div>
           ) : (
             <div className="flex h-32 items-center justify-center text-sm text-gray-500 dark:text-ui-faint">
-              {zh('没有可合并的目标女优', 'No target idol found')}
+              {zh(`没有可合并的目标${terms.zhNoun}`, `No target ${terms.enSingular} found`)}
             </div>
           )}
         </div>
@@ -856,8 +931,8 @@ function JavIdolMergeModal({ open, item, preferChineseName = false, onClose, onM
         {selected ? (
           <div className="rounded border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-300">
             {zh(
-              `"${sourceName}" 将作为 "${selectedName}" 的别名存在，当前女优记录会被删除，相关数据迁移会自动完成。此操作无法撤回，请仔细核实后操作。`,
-              `"${sourceName}" will exist as an alias of "${selectedName}". The current idol record will be deleted, and related data migration will be completed automatically. This action cannot be undone; verify carefully before continuing.`
+              `"${sourceName}" 将作为 "${selectedName}" 的别名存在，当前${terms.zhNoun}记录会被删除，相关数据迁移会自动完成。此操作无法撤回，请仔细核实后操作。`,
+              `"${sourceName}" will exist as an alias of "${selectedName}". The current ${terms.enSingular} record will be deleted, and related data migration will be completed automatically. This action cannot be undone; verify carefully before continuing.`
             )}
           </div>
         ) : null}

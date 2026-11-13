@@ -1,3 +1,4 @@
+import { isActorListTab } from '@/utils/actorTabs'
 import { useStore } from '@/store'
 import { useShallow } from 'zustand/react/shallow'
 import { useRef, useState, useMemo, useCallback, useEffect } from 'react'
@@ -118,9 +119,9 @@ export default function useLibraryRoute({ setJavSearchInput, setSearchInput, con
         const { jav } = parsed
         const current = useStore.getState()
         const sameIdolFavoriteGroup =
-          jav.tab === 'idol' &&
+          isActorListTab(jav.tab) &&
           Number(jav.favoriteGroupId || 0) > 0 &&
-          current.javTab === 'idol' &&
+          isActorListTab(current.javTab) &&
           Number(current.idolFavoriteGroupId || 0) === Number(jav.favoriteGroupId || 0)
         useStore.setState({
           viewMode: 'jav',
@@ -145,19 +146,19 @@ export default function useLibraryRoute({ setJavSearchInput, setSearchInput, con
           javFavoriteRatingMax: jav.tab === 'list' ? jav.favoriteRatingMax : 5,
           javFavoriteGroupId: jav.tab === 'list' ? jav.favoriteGroupId : null,
           javPage: jav.random ? 1 : jav.page,
-          idolPage: jav.tab === 'idol' ? jav.page : 1,
-          idolFavoriteGroupId: jav.tab === 'idol' ? jav.favoriteGroupId : null,
-          idolProfileFilters:
-            jav.tab === 'idol'
-              ? normalizeIdolProfileFilters(jav.idolProfileFilters)
-              : createDefaultIdolProfileFilters(),
+          idolPage: isActorListTab(jav.tab) ? jav.page : 1,
+          idolFavoriteGroupId: isActorListTab(jav.tab) ? jav.favoriteGroupId : null,
+          idolProfileFilters: isActorListTab(jav.tab)
+            ? normalizeIdolProfileFilters(jav.idolProfileFilters)
+            : createDefaultIdolProfileFilters(),
           studioPage: jav.tab === 'studio' ? jav.page : 1,
           studioFavoriteGroupId: jav.tab === 'studio' ? jav.favoriteGroupId : null,
           seriesPage: jav.tab === 'series' ? jav.page : 1,
           seriesFavoriteGroupId: jav.tab === 'series' ? jav.favoriteGroupId : null,
           javTempSort: jav.tab !== 'list' || jav.random ? '' : jav.tempSort,
           idolTempSort:
-            jav.tab === 'idol' && (!jav.favoriteGroupId || sameIdolFavoriteGroup || jav.tempSort)
+            isActorListTab(jav.tab) &&
+            (!jav.favoriteGroupId || sameIdolFavoriteGroup || jav.tempSort)
               ? jav.tempSort
               : '',
         })

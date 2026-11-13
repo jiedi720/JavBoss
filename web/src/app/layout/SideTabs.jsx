@@ -5,6 +5,7 @@ import CollectionsBookmarkOutlinedIcon from '@mui/icons-material/CollectionsBook
 import DisplaySettingsOutlinedIcon from '@mui/icons-material/DisplaySettingsOutlined'
 import DownloadOutlinedIcon from '@mui/icons-material/DownloadOutlined'
 import LocalOfferOutlinedIcon from '@mui/icons-material/LocalOfferOutlined'
+import MaleOutlinedIcon from '@mui/icons-material/MaleOutlined'
 import MovieCreationOutlinedIcon from '@mui/icons-material/MovieCreationOutlined'
 import NumbersRoundedIcon from '@mui/icons-material/NumbersRounded'
 import PeopleAltOutlinedIcon from '@mui/icons-material/PeopleAltOutlined'
@@ -20,6 +21,7 @@ const tabs = [
   { id: 'video', label: zh('视频', 'Video'), icon: VideoLibraryOutlinedIcon },
   { id: 'list', label: 'JAV', icon: MovieCreationOutlinedIcon },
   { id: 'idol', label: zh('女优', 'Idols'), icon: PeopleAltOutlinedIcon },
+  { id: 'actor', label: zh('男优', 'Actors'), icon: MaleOutlinedIcon },
   { id: 'studio', label: zh('片商', 'Studios'), icon: VideocamOutlinedIcon },
   { id: 'series', label: zh('系列', 'Series'), icon: CollectionsBookmarkOutlinedIcon },
 ]

@@ -27,6 +27,7 @@ import { getVideoDisplayName } from '@/utils/display'
 import { getIdolDisplayName } from '@/utils/javIdol'
 import { zh } from '@/utils/i18n'
 import { getErrorMessage } from '@/utils/errors'
+import { actorGenderOf, isMaleActor } from '@/utils/actorTabs'
 
 function formatScreenshotTime(name) {
   const stem = String(name || '')
@@ -533,6 +534,8 @@ export default function JavDetailModal({
   const itemSampleImages = item?.sample_images
   const code = String(item?.code || '').trim()
   const idols = useMemo(() => (Array.isArray(item?.idols) ? item.idols : []), [item?.idols])
+  const femaleIdols = useMemo(() => idols.filter((idol) => !isMaleActor(idol?.gender)), [idols])
+  const maleIdols = useMemo(() => idols.filter((idol) => isMaleActor(idol?.gender)), [idols])
   const videos = useMemo(() => (Array.isArray(item?.videos) ? item.videos : []), [item?.videos])
   const studioName = String(studio?.name || '').trim()
   const preferChinese = useStore((state) => preferChineseSeries(state.config))
@@ -769,13 +772,13 @@ export default function JavDetailModal({
               ))}
             </dl>
 
-            {idols.length > 0 ? (
+            {femaleIdols.length > 0 ? (
               <section aria-label={zh('女优', 'Actresses')}>
                 <h3 className="mb-2 text-sm font-semibold text-gray-800 dark:text-ui-text">
                   {zh('女优', 'Actresses')}
                 </h3>
                 <div className="flex flex-wrap gap-2">
-                  {idols.map((idol) => (
+                  {femaleIdols.map((idol) => (
                     <a
                       key={idol?.id || idol?.name}
                       href={buildIdolUrl?.(idol) || '#'}
@@ -785,6 +788,28 @@ export default function JavDetailModal({
                       onMouseLeave={scheduleHoverClose}
                     >
                       {getIdolDisplayName(idol, preferChineseName)}
+                    </a>
+                  ))}
+                </div>
+              </section>
+            ) : null}
+
+            {maleIdols.length > 0 ? (
+              <section aria-label={zh('男优', 'Actors')}>
+                <h3 className="mb-2 text-sm font-semibold text-gray-800 dark:text-ui-text">
+                  {zh('男优', 'Actors')}
+                </h3>
+                <div className="flex flex-wrap gap-2">
+                  {maleIdols.map((actor) => (
+                    <a
+                      key={actor?.id || actor?.name}
+                      href={buildIdolUrl?.(actor) || '#'}
+                      onClick={(event) => handleFilterClick(event, onSelectIdol, actor)}
+                      className="rounded-full border border-purple-200 bg-purple-50 px-3 py-1 text-xs font-medium text-purple-700 transition hover:border-purple-300 hover:bg-purple-100 dark:border-purple-800 dark:bg-purple-950 dark:text-purple-300 dark:hover:border-purple-400 dark:hover:bg-purple-900"
+                      onMouseEnter={(event) => handleHoverStart('idol', actor, event)}
+                      onMouseLeave={scheduleHoverClose}
+                    >
+                      {getIdolDisplayName(actor, preferChineseName)}
                     </a>
                   ))}
                 </div>
@@ -1007,6 +1032,7 @@ export default function JavDetailModal({
           ) : null}
           {hoverPreview?.type === 'idol' ? (
             <IdolCard
+              gender={actorGenderOf(undefined, hoverPreview.item)}
               item={hoverPreview.item}
               onSelectIdol={onSelectIdol}
               onOpenFavorites={onOpenIdolFavorites}

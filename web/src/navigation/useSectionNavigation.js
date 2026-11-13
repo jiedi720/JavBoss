@@ -1,3 +1,4 @@
+import { isActorListTab } from '@/utils/actorTabs'
 import { getSeriesDisplayName, preferChineseSeries } from '@/features/jav/titleTranslation'
 import { useStore } from '@/store'
 import { createDefaultIdolProfileFilters } from '@/constants/jav'
@@ -48,7 +49,7 @@ export default function useSectionNavigation({
         studioPage: 1,
         seriesPage: 1,
       }
-      if (javTab === 'idol') updates.idolFavoriteGroupId = null
+      if (isActorListTab(javTab)) updates.idolFavoriteGroupId = null
       else if (javTab === 'studio') updates.studioFavoriteGroupId = null
       else if (javTab === 'series') updates.seriesFavoriteGroupId = null
       else updates.javFavoriteGroupId = null

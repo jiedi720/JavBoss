@@ -1,3 +1,4 @@
+import { actorGenderForTab, isActorListTab } from '@/utils/actorTabs'
 import { useStore } from '@/store'
 import { getSeriesDisplayName, preferChineseSeries } from '@/features/jav/titleTranslation'
 import JavIdolView from '@/features/jav/components/JavIdolView'
@@ -8,6 +9,8 @@ import JavView from '@/features/jav/components/JavView'
 function JavIdolRoute({
   buildJavUrl,
   config,
+  gender = 'female',
+  tab = 'idol',
   hasMore,
   hasNext,
   hasPrev,
@@ -34,6 +37,7 @@ function JavIdolRoute({
 }) {
   return (
     <JavIdolView
+      gender={gender}
       page={page}
       lastPage={lastPage}
       totalItems={totalItems}
@@ -43,7 +47,7 @@ function JavIdolRoute({
       idolTempSort={idolTempSort}
       idolGlobalSort={idolGlobalSort}
       setIdolTempSort={setIdolTempSort}
-      buildPageUrl={({ page: targetPage }) => buildJavUrl({ page: targetPage, tab: 'idol' })}
+      buildPageUrl={({ page: targetPage }) => buildJavUrl({ page: targetPage, tab })}
       buildIdolUrl={(idol) =>
         buildJavUrl({
           page: 1,
@@ -340,7 +344,16 @@ function JavListRoute({
 }
 
 export default function JavTabs({ tab, ...props }) {
-  if (tab === 'idol') return <JavIdolRoute {...props.idol} buildJavUrl={props.buildJavUrl} />
+  if (isActorListTab(tab)) {
+    return (
+      <JavIdolRoute
+        {...props.idol}
+        tab={tab}
+        gender={actorGenderForTab(tab)}
+        buildJavUrl={props.buildJavUrl}
+      />
+    )
+  }
   if (tab === 'studio') return <JavStudioRoute {...props.studio} buildJavUrl={props.buildJavUrl} />
   if (tab === 'series') {
     return (

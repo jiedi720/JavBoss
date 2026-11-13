@@ -1,3 +1,4 @@
+import { isActorListTab } from '@/utils/actorTabs'
 import { zh } from '@/utils/i18n'
 
 export function formatPageTitle(...parts) {
@@ -17,12 +18,13 @@ export function buildLibraryPageTitle({
     : {
         list: 'JAV',
         idol: zh('女优', 'Idols'),
+        actor: zh('男优', 'Actors'),
         studio: zh('片商', 'Studios'),
         series: zh('系列', 'Series'),
       }[javTab] || 'JAV'
   const filters = filterItems.map((item) => item.label).filter(Boolean)
   // Idol search is displayed in the search box rather than a filter chip.
-  if (isJavMode && javTab === 'idol' && javSearchTerm.trim()) {
+  if (isJavMode && isActorListTab(javTab) && javSearchTerm.trim()) {
     filters.unshift(zh(`搜索: ${javSearchTerm.trim()}`, `Search: ${javSearchTerm.trim()}`))
   }
   const context = [isJavMode ? favoriteGroupName : '', ...filters].filter(Boolean).join(' · ')

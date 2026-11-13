@@ -1,3 +1,4 @@
+import { isActorListTab } from '@/utils/actorTabs'
 import { useEffect } from 'react'
 
 export default function useScrollRestoration({
@@ -47,7 +48,7 @@ export default function useScrollRestoration({
         loadMoreJavs()
         return
       }
-      if (isJavMode && javTab === 'idol' && waterfallModes.idol && idolWaterfallHasMore) {
+      if (isJavMode && isActorListTab(javTab) && waterfallModes.idol && idolWaterfallHasMore) {
         loadMoreJavIdols()
         return
       }

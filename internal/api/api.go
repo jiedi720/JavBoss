@@ -3,6 +3,7 @@ package api
 import (
 	"net/http"
 
+	"javboss/internal/models"
 	"javboss/internal/update"
 
 	"github.com/gin-gonic/gin"
@@ -176,6 +177,22 @@ func RegisterRoutes(router gin.IRoutes) {
 	router.GET("/jav/idols/:id/cover-options", listJavIdolCoverOptions)
 	router.PUT("/jav/idols/:id/cover", updateJavIdolCover)
 	router.GET("/jav/idols/:id", getJavIdol)
+	router.DELETE("/jav/idols/:id", deleteJavIdol)
+
+	// Male actors share the jav_idol table and the same handlers, but are
+	// addressed through dedicated routes so a female endpoint can never create,
+	// list, edit or delete a male actor by accident.
+	maleActor := withActorGender(models.ActorGenderMale)
+	router.GET("/jav/actors", maleActor, listJavIdols)
+	router.POST("/jav/actors", maleActor, createJavIdol)
+	router.GET("/jav/actors/options", maleActor, listJavIdolOptions)
+	router.GET("/jav/actors/resolve", maleActor, resolveJavIdols)
+	router.POST("/jav/actors/merge", maleActor, mergeJavIdols)
+	router.PATCH("/jav/actors/:id", maleActor, updateJavIdol)
+	router.DELETE("/jav/actors/:id", maleActor, deleteJavIdol)
+	router.GET("/jav/actors/:id/cover-options", maleActor, listJavIdolCoverOptions)
+	router.PUT("/jav/actors/:id/cover", maleActor, updateJavIdolCover)
+	router.GET("/jav/actors/:id", maleActor, getJavIdol)
 }
 
 const (

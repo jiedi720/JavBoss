@@ -45,6 +45,134 @@ import { getIdolDisplayName, getIdolDisplayNames } from '@/utils/javIdol'
 import AddIcon from '@mui/icons-material/Add'
 import CloseOutlinedIcon from '@mui/icons-material/CloseOutlined'
 import RefreshOutlinedIcon from '@mui/icons-material/RefreshOutlined'
+import { ACTOR_GENDER_FEMALE, ACTOR_GENDER_MALE, actorTerms, isMaleActor } from '@/utils/actorTabs'
+
+function ActorPicker({
+  pickerRef,
+  title,
+  terms,
+  selectedOptions,
+  availableOptions,
+  saving,
+  creating,
+  optionsLoading,
+  pickerOpen,
+  onTogglePicker,
+  onClosePicker,
+  search,
+  onSearchChange,
+  onCreate,
+  matchingOption,
+  onRemove,
+  onSelect,
+  preferChineseName,
+}) {
+  return (
+    <div ref={pickerRef}>
+      <div className="text-[13px] font-semibold text-black dark:text-ui-text">{title}</div>
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        {selectedOptions.map((actor) => (
+          <SelectedChip
+            key={actor.id}
+            label={getIdolDisplayName(actor, preferChineseName)}
+            disabled={saving}
+            compact
+            onRemove={() => onRemove(actor.id)}
+          />
+        ))}
+        <button
+          type="button"
+          className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-ui-border dark:text-ui-secondary dark:hover:bg-ui-hover"
+          onClick={onTogglePicker}
+          disabled={saving || creating}
+          title={zh(`新增${terms.zhNoun}`, `Add ${terms.enSingular}`)}
+          aria-label={zh(`新增${terms.zhNoun}`, `Add ${terms.enSingular}`)}
+        >
+          <AddIcon sx={{ fontSize: 13 }} />
+        </button>
+      </div>
+      {pickerOpen ? (
+        <div className="mt-2 rounded-md border border-gray-200 p-2 dark:border-ui-border">
+          <div className="mb-2 flex items-center gap-2">
+            <input
+              type="text"
+              value={search}
+              onChange={(event) => onSearchChange(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key !== 'Enter' || event.nativeEvent.isComposing) return
+                event.preventDefault()
+                void onCreate()
+              }}
+              placeholder={zh(
+                `搜索或输入${terms.zhNoun}名称`,
+                `Search or enter an ${terms.enSingular} name`
+              )}
+              className="form-field min-w-0 flex-1 rounded border border-gray-300 px-2 py-1.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+              disabled={saving || creating || optionsLoading}
+            />
+            <button
+              type="button"
+              className="inline-flex shrink-0 items-center gap-1 rounded-md border border-gray-300 px-2 py-1.5 text-xs text-gray-700 hover:bg-gray-50 dark:border-ui-border dark:text-ui-secondary dark:hover:bg-ui-hover"
+              onClick={onClosePicker}
+            >
+              <CloseOutlinedIcon sx={{ fontSize: 14 }} />
+              {zh('完成', 'Done')}
+            </button>
+          </div>
+          <div className="max-h-44 overflow-y-auto">
+            {!optionsLoading && search.trim() && !matchingOption ? (
+              <button
+                type="button"
+                className="mb-1 flex w-full items-center gap-1 rounded bg-blue-50 px-2 py-1.5 text-left text-sm text-ui-primary-hover hover:bg-blue-100 dark:bg-ui-blue-surface dark:text-blue-300 dark:hover:bg-ui-blue-hover"
+                onClick={() => void onCreate()}
+                disabled={saving || creating}
+              >
+                <AddIcon sx={{ fontSize: 15 }} />
+                {creating
+                  ? zh('创建中...', 'Creating...')
+                  : zh(`新建“${search.trim()}”`, `Create “${search.trim()}”`)}
+              </button>
+            ) : null}
+            {optionsLoading ? (
+              <div className="px-2 py-1 text-sm text-gray-500 dark:text-ui-faint">
+                {zh('加载中...', 'Loading...')}
+              </div>
+            ) : availableOptions.length === 0 && !search.trim() ? (
+              <div className="px-2 py-1 text-sm text-gray-500 dark:text-ui-faint">
+                {zh(`暂无可添加${terms.zhNoun}`, `No ${terms.enPlural} to add`)}
+              </div>
+            ) : (
+              availableOptions.map((actor) => {
+                const { primaryName, secondaryName } = getIdolDisplayNames(actor, false)
+                return (
+                  <button
+                    key={actor.id}
+                    type="button"
+                    className="flex w-full items-center gap-3 rounded px-2 py-1.5 text-left text-sm text-gray-800 hover:bg-gray-50 dark:text-ui-text dark:hover:bg-ui-hover"
+                    onClick={() => onSelect(actor.id)}
+                    disabled={saving}
+                  >
+                    <span className="flex min-w-0 flex-1 items-baseline gap-2">
+                      <span className="truncate">{primaryName}</span>
+                      {secondaryName ? (
+                        <span className="truncate text-xs text-gray-500 dark:text-ui-faint">
+                          {secondaryName}
+                        </span>
+                      ) : null}
+                    </span>
+                    <span className="shrink-0 text-xs tabular-nums text-gray-400 dark:text-ui-faint">
+                      {javEditWorkCountLabel(actor?.work_count)}
+                    </span>
+                  </button>
+                )
+              })
+            )}
+          </div>
+        </div>
+      ) : null}
+    </div>
+  )
+}
 
 export function JavEditModal({ open, item, ...props }) {
   return open ? <JavEditForm key={item?.id ?? 'new'} item={item} {...props} /> : null
@@ -75,6 +203,12 @@ function JavEditForm({
   const [createdUserTags, setCreatedUserTags] = useState([])
   const [createdScrapedTags, setCreatedScrapedTags] = useState([])
   const [createdIdols, setCreatedIdols] = useState([])
+  const [selectedActorIds, setSelectedActorIds] = useState([])
+  const [createdActors, setCreatedActors] = useState([])
+  const [actorOptions, setActorOptions] = useState([])
+  const [actorSearch, setActorSearch] = useState('')
+  const [actorPickerOpen, setActorPickerOpen] = useState(false)
+  const [creatingActor, setCreatingActor] = useState(false)
   const [selectedStudioId, setSelectedStudioId] = useState('')
   const [selectedSeriesId, setSelectedSeriesId] = useState('')
   const [idolOptions, setIdolOptions] = useState([])
@@ -104,11 +238,15 @@ function JavEditForm({
   const [creatingIdol, setCreatingIdol] = useState(false)
   const [error, setError] = useState('')
   const idolPickerRef = useRef(null)
+  const actorPickerRef = useRef(null)
   const scrapedTagPickerRef = useRef(null)
   const tagPickerRef = useRef(null)
   useCloseOnOutsidePointer(idolPickerOpen, idolPickerRef, setIdolPickerOpen)
+  useCloseOnOutsidePointer(actorPickerOpen, actorPickerRef, setActorPickerOpen)
   useCloseOnOutsidePointer(scrapedTagPickerOpen, scrapedTagPickerRef, setScrapedTagPickerOpen)
   useCloseOnOutsidePointer(tagPickerOpen, tagPickerRef, setTagPickerOpen)
+  const femaleTerms = actorTerms(ACTOR_GENDER_FEMALE)
+  const maleTerms = actorTerms(ACTOR_GENDER_MALE)
   const code = String(item?.code || '').trim()
   const userTagOptions = useMemo(() => tagOptions.filter((tag) => isUserJavTag(tag)), [tagOptions])
   const scrapedTagOptions = useMemo(
@@ -143,10 +281,22 @@ function JavEditForm({
   const mergedIdolOptions = useMemo(
     () =>
       mergeOptionsById(idolOptions, [
-        ...(Array.isArray(item?.idols) ? item.idols : []),
+        ...(Array.isArray(item?.idols)
+          ? item.idols.filter((idol) => !isMaleActor(idol?.gender))
+          : []),
         ...createdIdols,
       ]),
     [createdIdols, idolOptions, item?.idols]
+  )
+  const mergedActorOptions = useMemo(
+    () =>
+      mergeOptionsById(actorOptions, [
+        ...(Array.isArray(item?.idols)
+          ? item.idols.filter((idol) => isMaleActor(idol?.gender))
+          : []),
+        ...createdActors,
+      ]),
+    [actorOptions, createdActors, item?.idols]
   )
   const visibleStudioOptions = useMemo(
     () =>
@@ -179,6 +329,17 @@ function JavEditForm({
       ),
     [idolSearch, mergedIdolOptions, preferChineseName, selectedIdolIds]
   )
+  const visibleActorOptions = useMemo(
+    () =>
+      includeSelectedOptions(
+        filterOptionsByName(mergedActorOptions, actorSearch, (actor) =>
+          buildIdolSearchText(actor, preferChineseName)
+        ),
+        mergedActorOptions,
+        selectedActorIds
+      ),
+    [actorSearch, mergedActorOptions, preferChineseName, selectedActorIds]
+  )
   const visibleTagOptions = useMemo(
     () =>
       includeSelectedOptions(
@@ -201,6 +362,10 @@ function JavEditForm({
     () => optionsByIds(mergedIdolOptions, selectedIdolIds),
     [mergedIdolOptions, selectedIdolIds]
   )
+  const selectedActorOptions = useMemo(
+    () => optionsByIds(mergedActorOptions, selectedActorIds),
+    [mergedActorOptions, selectedActorIds]
+  )
   const selectedTagOptions = useMemo(
     () => optionsByIds(mergedUserTagOptions, selectedTagIds),
     [mergedUserTagOptions, selectedTagIds]
@@ -216,6 +381,13 @@ function JavEditForm({
       ),
     [idolSearch, mergedIdolOptions, preferChineseName]
   )
+  const matchingActorOption = useMemo(
+    () =>
+      findJavEditOptionByName(mergedActorOptions, actorSearch, (actor) =>
+        javEditIdolNames(actor, preferChineseName)
+      ),
+    [actorSearch, mergedActorOptions, preferChineseName]
+  )
   const matchingScrapedTagOption = useMemo(
     () =>
       findJavEditOptionByName(mergedScrapedTagOptions, scrapedTagSearch, (tag) =>
@@ -230,6 +402,10 @@ function JavEditForm({
   const availableIdolOptions = useMemo(
     () => visibleIdolOptions.filter((idol) => !selectedIdolIds.includes(String(idol.id))),
     [selectedIdolIds, visibleIdolOptions]
+  )
+  const availableActorOptions = useMemo(
+    () => visibleActorOptions.filter((actor) => !selectedActorIds.includes(String(actor.id))),
+    [selectedActorIds, visibleActorOptions]
   )
   const availableTagOptions = useMemo(
     () => visibleTagOptions.filter((tag) => !selectedTagIds.includes(String(tag.id))),
@@ -254,6 +430,16 @@ function JavEditForm({
     setSelectedIdolIds(
       Array.isArray(item?.idols)
         ? item.idols
+            .filter((idol) => !isMaleActor(idol?.gender))
+            .map((idol) => Number(idol?.id))
+            .filter((id) => Number.isFinite(id) && id > 0)
+            .map((id) => String(id))
+        : []
+    )
+    setSelectedActorIds(
+      Array.isArray(item?.idols)
+        ? item.idols
+            .filter((idol) => isMaleActor(idol?.gender))
             .map((idol) => Number(idol?.id))
             .filter((id) => Number.isFinite(id) && id > 0)
             .map((id) => String(id))
@@ -263,14 +449,17 @@ function JavEditForm({
     setCreatedUserTags([])
     setCreatedScrapedTags([])
     setCreatedIdols([])
+    setCreatedActors([])
     setSelectedStudioId(item?.studio?.id ? String(item.studio.id) : '')
     setSelectedSeriesId(currentSeries?.id ? String(currentSeries.id) : '')
     setIdolSearch('')
+    setActorSearch('')
     setTagSearch('')
     setScrapedTagSearch('')
     setStudioSearch('')
     setSeriesSearch('')
     setIdolPickerOpen(false)
+    setActorPickerOpen(false)
     setTagPickerOpen(false)
     setScrapedTagPickerOpen(false)
     setStudioDropdownOpen(false)
@@ -283,6 +472,7 @@ function JavEditForm({
     setCreatingUserTag(false)
     setCreatingScrapedTag(false)
     setCreatingIdol(false)
+    setCreatingActor(false)
     setTagOptionsLoading(true)
     Promise.resolve(loadJavTags?.({ skipUnchanged: true })).finally(() => {
       if (!cancelled) setTagOptionsLoading(false)
@@ -300,12 +490,16 @@ function JavEditForm({
       fetchAllJavEditOptions(fetchJavStudios),
       fetchAllJavEditOptions(fetchJavSeries),
       fetchAllJavEditOptions(fetchJavIdolOptions),
+      fetchAllJavEditOptions((options) =>
+        fetchJavIdolOptions({ ...options, gender: ACTOR_GENDER_MALE })
+      ),
     ])
-      .then(([studios, series, idols]) => {
+      .then(([studios, series, idols, actors]) => {
         if (cancelled) return
         setStudioOptions(studios)
         setSeriesOptions(series)
         setIdolOptions(idols)
+        setActorOptions(actors)
       })
       .catch((err) => {
         if (cancelled) return
@@ -313,6 +507,7 @@ function JavEditForm({
         setStudioOptions([])
         setSeriesOptions([])
         setIdolOptions([])
+        setActorOptions([])
       })
       .finally(() => {
         if (!cancelled) setOptionsLoading(false)
@@ -321,6 +516,34 @@ function JavEditForm({
       cancelled = true
     }
   }, [])
+
+  const toggleIdolPicker = () => {
+    setIdolPickerOpen((current) => !current)
+    setActorPickerOpen(false)
+    setScrapedTagPickerOpen(false)
+    setTagPickerOpen(false)
+    setScrapedTagSearch('')
+    setTagSearch('')
+  }
+
+  const closeIdolPicker = () => {
+    setIdolSearch('')
+    setIdolPickerOpen(false)
+  }
+
+  const toggleActorPicker = () => {
+    setActorPickerOpen((current) => !current)
+    setIdolPickerOpen(false)
+    setScrapedTagPickerOpen(false)
+    setTagPickerOpen(false)
+    setScrapedTagSearch('')
+    setTagSearch('')
+  }
+
+  const closeActorPicker = () => {
+    setActorSearch('')
+    setActorPickerOpen(false)
+  }
 
   const toggleTag = (tagId, checked) => {
     const id = String(tagId)
@@ -368,6 +591,42 @@ function JavEditForm({
       setError(getErrorMessage(err))
     } finally {
       setCreatingIdol(false)
+    }
+  }
+
+  const toggleActor = (actorId, checked) => {
+    const id = String(actorId)
+    setSelectedActorIds((current) => {
+      const next = new Set(current)
+      if (checked) {
+        next.add(id)
+      } else {
+        next.delete(id)
+      }
+      return Array.from(next)
+    })
+  }
+
+  const addActor = async () => {
+    const name = actorSearch.trim()
+    if (!name || creatingActor || optionsLoading) return
+    if (matchingActorOption?.id) {
+      toggleActor(matchingActorOption.id, true)
+      setActorSearch('')
+      return
+    }
+    setCreatingActor(true)
+    setError('')
+    try {
+      const created = await createJavIdol(name, ACTOR_GENDER_MALE)
+      if (!created?.id) throw new Error(zh('创建男优失败', 'Failed to create actor'))
+      setCreatedActors((current) => mergeOptionsById(current, [created]))
+      toggleActor(created.id, true)
+      setActorSearch('')
+    } catch (err) {
+      setError(getErrorMessage(err))
+    } finally {
+      setCreatingActor(false)
     }
   }
 
@@ -465,6 +724,7 @@ function JavEditForm({
         ...(trimmedCoverUrl ? { cover_url: trimmedCoverUrl } : {}),
         tag_ids: selectedTagIds.map((id) => Number(id)).filter(Boolean),
         idol_ids: selectedIdolIds.map((id) => Number(id)).filter(Boolean),
+        actor_ids: selectedActorIds.map((id) => Number(id)).filter(Boolean),
         scraped_tag_ids: selectedScrapedTagIds.map((id) => Number(id)).filter(Boolean),
         studio_id: selectedStudioId ? Number(selectedStudioId) : 0,
         series_id: selectedSeriesId ? Number(selectedSeriesId) : 0,
@@ -473,9 +733,23 @@ function JavEditForm({
       }
       const updated = await updateJavItem(item.id, payload)
       void loadJavTags?.({ force: true })
+      const resolveLinkedActors = (gender) => {
+        const ids = gender === ACTOR_GENDER_MALE ? payload.actor_ids : payload.idol_ids
+        const candidates = gender === ACTOR_GENDER_MALE ? mergedActorOptions : mergedIdolOptions
+        const fromResponse = Array.isArray(updated?.idols) ? updated.idols : []
+        return ids.map((id) => {
+          const source =
+            fromResponse.find((entry) => Number(entry?.id) === id) ||
+            candidates.find((entry) => Number(entry?.id) === id)
+          return { ...(source || {}), id, gender }
+        })
+      }
       const normalizedUpdated = {
         ...updated,
-        ...(payload.idol_ids.length === 0 ? { idols: [] } : {}),
+        idols: [
+          ...resolveLinkedActors(ACTOR_GENDER_FEMALE),
+          ...resolveLinkedActors(ACTOR_GENDER_MALE),
+        ],
         ...(payload.tag_ids.length === 0 &&
         payload.scraped_tag_ids.length === 0 &&
         !Array.isArray(updated?.tags)
@@ -731,117 +1005,46 @@ function JavEditForm({
             disabled={saving || optionsLoading}
           />
         </div>
-        <div ref={idolPickerRef}>
-          <div className="text-[13px] font-semibold text-black dark:text-ui-text">
-            {zh('女优', 'Idols')}
-          </div>
-          <div className="mt-2 flex flex-wrap items-center gap-2">
-            {selectedIdolOptions.map((idol) => (
-              <SelectedChip
-                key={idol.id}
-                label={getIdolDisplayName(idol, preferChineseName)}
-                disabled={saving}
-                compact
-                onRemove={() => toggleIdol(idol.id, false)}
-              />
-            ))}
-            <button
-              type="button"
-              className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-ui-border dark:text-ui-secondary dark:hover:bg-ui-hover"
-              onClick={() => {
-                setIdolPickerOpen((current) => !current)
-                setScrapedTagPickerOpen(false)
-                setTagPickerOpen(false)
-                setScrapedTagSearch('')
-                setTagSearch('')
-              }}
-              disabled={saving || creatingIdol}
-              title={zh('新增女优', 'Add idol')}
-              aria-label={zh('新增女优', 'Add idol')}
-            >
-              <AddIcon sx={{ fontSize: 13 }} />
-            </button>
-          </div>
-          {idolPickerOpen ? (
-            <div className="mt-2 rounded-md border border-gray-200 p-2 dark:border-ui-border">
-              <div className="mb-2 flex items-center gap-2">
-                <input
-                  type="text"
-                  value={idolSearch}
-                  onChange={(event) => setIdolSearch(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key !== 'Enter' || event.nativeEvent.isComposing) return
-                    event.preventDefault()
-                    void addIdol()
-                  }}
-                  placeholder={zh('搜索或输入女优名称', 'Search or enter an idol name')}
-                  className="form-field min-w-0 flex-1 rounded border border-gray-300 px-2 py-1.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                  disabled={saving || creatingIdol || optionsLoading}
-                />
-                <button
-                  type="button"
-                  className="inline-flex shrink-0 items-center gap-1 rounded-md border border-gray-300 px-2 py-1.5 text-xs text-gray-700 hover:bg-gray-50 dark:border-ui-border dark:text-ui-secondary dark:hover:bg-ui-hover"
-                  onClick={() => {
-                    setIdolSearch('')
-                    setIdolPickerOpen(false)
-                  }}
-                >
-                  <CloseOutlinedIcon sx={{ fontSize: 14 }} />
-                  {zh('完成', 'Done')}
-                </button>
-              </div>
-              <div className="max-h-44 overflow-y-auto">
-                {!optionsLoading && idolSearch.trim() && !matchingIdolOption ? (
-                  <button
-                    type="button"
-                    className="mb-1 flex w-full items-center gap-1 rounded bg-blue-50 px-2 py-1.5 text-left text-sm text-ui-primary-hover hover:bg-blue-100 dark:bg-ui-blue-surface dark:text-blue-300 dark:hover:bg-ui-blue-hover"
-                    onClick={() => void addIdol()}
-                    disabled={saving || creatingIdol}
-                  >
-                    <AddIcon sx={{ fontSize: 15 }} />
-                    {creatingIdol
-                      ? zh('创建中...', 'Creating...')
-                      : zh(`新建“${idolSearch.trim()}”`, `Create “${idolSearch.trim()}”`)}
-                  </button>
-                ) : null}
-                {optionsLoading ? (
-                  <div className="px-2 py-1 text-sm text-gray-500 dark:text-ui-faint">
-                    {zh('加载中...', 'Loading...')}
-                  </div>
-                ) : availableIdolOptions.length === 0 && !idolSearch.trim() ? (
-                  <div className="px-2 py-1 text-sm text-gray-500 dark:text-ui-faint">
-                    {zh('暂无可添加女优', 'No idols to add')}
-                  </div>
-                ) : (
-                  availableIdolOptions.map((idol) => {
-                    const { primaryName, secondaryName } = getIdolDisplayNames(idol, false)
-                    return (
-                      <button
-                        key={idol.id}
-                        type="button"
-                        className="flex w-full items-center gap-3 rounded px-2 py-1.5 text-left text-sm text-gray-800 hover:bg-gray-50 dark:text-ui-text dark:hover:bg-ui-hover"
-                        onClick={() => toggleIdol(idol.id, true)}
-                        disabled={saving}
-                      >
-                        <span className="flex min-w-0 flex-1 items-baseline gap-2">
-                          <span className="truncate">{primaryName}</span>
-                          {secondaryName ? (
-                            <span className="truncate text-xs text-gray-500 dark:text-ui-faint">
-                              {secondaryName}
-                            </span>
-                          ) : null}
-                        </span>
-                        <span className="shrink-0 text-xs tabular-nums text-gray-400 dark:text-ui-faint">
-                          {javEditWorkCountLabel(idol?.work_count)}
-                        </span>
-                      </button>
-                    )
-                  })
-                )}
-              </div>
-            </div>
-          ) : null}
-        </div>
+        <ActorPicker
+          pickerRef={idolPickerRef}
+          title={zh('女优', 'Idols')}
+          terms={femaleTerms}
+          selectedOptions={selectedIdolOptions}
+          availableOptions={availableIdolOptions}
+          saving={saving}
+          creating={creatingIdol}
+          optionsLoading={optionsLoading}
+          pickerOpen={idolPickerOpen}
+          onTogglePicker={toggleIdolPicker}
+          onClosePicker={closeIdolPicker}
+          search={idolSearch}
+          onSearchChange={setIdolSearch}
+          onCreate={addIdol}
+          matchingOption={matchingIdolOption}
+          onRemove={(id) => toggleIdol(id, false)}
+          onSelect={(id) => toggleIdol(id, true)}
+          preferChineseName={preferChineseName}
+        />
+        <ActorPicker
+          pickerRef={actorPickerRef}
+          title={zh('男优', 'Actors')}
+          terms={maleTerms}
+          selectedOptions={selectedActorOptions}
+          availableOptions={availableActorOptions}
+          saving={saving}
+          creating={creatingActor}
+          optionsLoading={optionsLoading}
+          pickerOpen={actorPickerOpen}
+          onTogglePicker={toggleActorPicker}
+          onClosePicker={closeActorPicker}
+          search={actorSearch}
+          onSearchChange={setActorSearch}
+          onCreate={addActor}
+          matchingOption={matchingActorOption}
+          onRemove={(id) => toggleActor(id, false)}
+          onSelect={(id) => toggleActor(id, true)}
+          preferChineseName={preferChineseName}
+        />
         {optionsError ? (
           <div className="text-sm text-red-600 dark:text-red-300">{optionsError}</div>
         ) : null}

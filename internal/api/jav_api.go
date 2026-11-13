@@ -563,7 +563,8 @@ type javItemUpdateRequest struct {
 	ZhTitle           *string  `json:"zh_title"`
 	CoverURL          *string  `json:"cover_url"`
 	TagIDs            *[]int64 `json:"tag_ids"`
-	IdolIDs           *[]int64 `json:"idol_ids"`
+	IdolIDs           *[]int64 `json:"idol_ids"`  // female actors
+	ActorIDs          *[]int64 `json:"actor_ids"` // male actors
 	ScrapedTagIDs     *[]int64 `json:"scraped_tag_ids"`
 	StudioID          *int64   `json:"studio_id"`
 	SeriesID          *int64   `json:"series_id"`
@@ -625,6 +626,7 @@ func updateJavItem(c *gin.Context) {
 		StudioID:          req.StudioID,
 		SeriesID:          req.SeriesID,
 		IdolIDs:           req.IdolIDs,
+		ActorIDs:          req.ActorIDs,
 		UserTagIDs:        req.TagIDs,
 		ScrapedTagIDs:     req.ScrapedTagIDs,
 		ReleaseUnix:       releaseUnix,

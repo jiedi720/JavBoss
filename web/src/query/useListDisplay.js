@@ -1,3 +1,4 @@
+import { isActorListTab } from '@/utils/actorTabs'
 import { useStore } from '@/store'
 import { useShallow } from 'zustand/react/shallow'
 import { useEffect, useCallback } from 'react'
@@ -58,7 +59,7 @@ export default function useListDisplay({ configLoaded, hydrated }) {
       if (!hydrated || !configLoaded) return
       if (tab === 'download') {
         return
-      } else if (tab === 'idol') {
+      } else if (isActorListTab(tab)) {
         loadJavIdols({ force: true })
         loadJavFavoriteGroups('idol', { force: true })
       } else if (tab === 'studio') {
