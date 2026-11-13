@@ -165,6 +165,12 @@ export default function useJavItemActions({
             href: `/jav/avsox-redirect?code=${encodedCode}`,
             icon: '/ico/avsox.ico',
           },
+          {
+            key: 'dmm',
+            name: 'DMM',
+            href: `https://www.dmm.co.jp/search/=/searchstr=${encodedCode}/`,
+            icon: '/ico/dmm.ico',
+          },
         ]
       : [
           {
@@ -197,6 +203,12 @@ export default function useJavItemActions({
             name: 'MissAV',
             href: `https://missav.ws/${encodedCode}`,
             icon: '/ico/missav.ico',
+          },
+          {
+            key: 'dmm',
+            name: 'DMM',
+            href: `https://www.dmm.co.jp/search/=/searchstr=${encodedCode}/`,
+            icon: '/ico/dmm.ico',
           },
         ]
     : []
