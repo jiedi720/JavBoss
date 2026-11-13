@@ -164,6 +164,15 @@ export const STUDIO_SORT_OPTIONS = [
     desc: ['多→少', 'high→low'],
   },
   {
+    base: 'code',
+    defaultValue: 'code',
+    ascValue: 'code_asc',
+    descValue: 'code',
+    label: ['番号数量', 'Code count'],
+    asc: ['少→多', 'low→high'],
+    desc: ['多→少', 'high→low'],
+  },
+  {
     base: 'work',
     defaultValue: 'work',
     ascValue: 'work_asc',
@@ -420,6 +429,8 @@ export function normalizeStudioSort(sort, fallback = 'work') {
     work_desc: 'work',
     series_count: 'series',
     series_desc: 'series',
+    code_count: 'code',
+    code_desc: 'code',
   })
 }
 

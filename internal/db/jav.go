@@ -1494,6 +1494,10 @@ func buildJavStudioOrder(sort string) string {
 		return "series_count DESC, work_count DESC, js.name ASC, js.id ASC"
 	case "series_asc":
 		return "series_count ASC, work_count DESC, js.name ASC, js.id ASC"
+	case "code":
+		return "code_count DESC, work_count DESC, js.name ASC, js.id ASC"
+	case "code_asc":
+		return "code_count ASC, work_count DESC, js.name ASC, js.id ASC"
 	}
 	return "work_count DESC, js.name ASC, js.id ASC"
 }
@@ -1588,7 +1592,7 @@ func (store *Store) ListJavStudiosSorted(ctx context.Context, search, sort strin
 	}
 	if err := base.
 		Joins("LEFT JOIN (?) favorite_counts ON favorite_counts.entity_id = js.id", store.buildFavoriteCountQuery(ctx, JavFavoriteEntityStudio)).
-		Select("js.id, js.name, COUNT(DISTINCT j.id) AS work_count, COUNT(DISTINCT NULLIF(j.series_id, 0)) AS series_count, MIN(j.code) AS sample_code, COALESCE(favorite_counts.favorite_count, 0) AS favorite_count").
+		Select("js.id, js.name, COUNT(DISTINCT j.id) AS work_count, COUNT(DISTINCT NULLIF(j.series_id, 0)) AS series_count, COUNT(DISTINCT NULLIF(" + javCodePrefixSQL("j.code") + ", '')) AS code_count, MIN(j.code) AS sample_code, COALESCE(favorite_counts.favorite_count, 0) AS favorite_count").
 		Group("js.id, js.name, favorite_counts.favorite_count").
 		Order(order).
 		Limit(limit).
