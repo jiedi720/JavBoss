@@ -153,6 +153,57 @@ export const IDOL_SORT_OPTIONS = [
   },
 ]
 
+export const STUDIO_SORT_OPTIONS = [
+  {
+    base: 'series',
+    defaultValue: 'series',
+    ascValue: 'series_asc',
+    descValue: 'series',
+    label: ['系列数量', 'Series count'],
+    asc: ['少→多', 'low→high'],
+    desc: ['多→少', 'high→low'],
+  },
+  {
+    base: 'work',
+    defaultValue: 'work',
+    ascValue: 'work_asc',
+    descValue: 'work',
+    label: ['作品数量', 'Work count'],
+    asc: ['少→多', 'low→high'],
+    desc: ['多→少', 'high→low'],
+  },
+  {
+    base: 'name',
+    defaultValue: 'name',
+    ascValue: 'name',
+    descValue: 'name_desc',
+    label: ['首文字', 'First character'],
+    asc: ['A→Z', 'A→Z'],
+    desc: ['Z→A', 'Z→A'],
+  },
+]
+
+export const SERIES_SORT_OPTIONS = [
+  {
+    base: 'work',
+    defaultValue: 'work',
+    ascValue: 'work_asc',
+    descValue: 'work',
+    label: ['作品数量', 'Work count'],
+    asc: ['少→多', 'low→high'],
+    desc: ['多→少', 'high→low'],
+  },
+  {
+    base: 'name',
+    defaultValue: 'name',
+    ascValue: 'name',
+    descValue: 'name_desc',
+    label: ['首文字', 'First character'],
+    asc: ['A→Z', 'A→Z'],
+    desc: ['Z→A', 'Z→A'],
+  },
+]
+
 export const IDOL_FAVORITE_ORDER_SORT = 'favorite_order'
 
 export const IDOL_PROFILE_FILTER_DEFINITIONS = [
@@ -219,6 +270,8 @@ const buildSortMap = (options) => {
 
 const javSortMap = buildSortMap(JAV_SORT_OPTIONS)
 const idolSortMap = buildSortMap(IDOL_SORT_OPTIONS)
+const studioSortMap = buildSortMap(STUDIO_SORT_OPTIONS)
+const seriesSortMap = buildSortMap(SERIES_SORT_OPTIONS)
 
 const normalizeFromOptions = (sort, fallback, optionsMap, aliases = {}) => {
   const key = String(sort || '')
@@ -357,6 +410,24 @@ export function normalizeIdolSort(sort, fallback = 'work') {
     hips_desc: 'hips',
     waist_asc: 'waist',
     cup_desc: 'cup',
+  })
+}
+
+export function normalizeStudioSort(sort, fallback = 'work') {
+  return normalizeFromOptions(sort, fallback, studioSortMap, {
+    work_count: 'work',
+    count: 'work',
+    work_desc: 'work',
+    series_count: 'series',
+    series_desc: 'series',
+  })
+}
+
+export function normalizeSeriesSort(sort, fallback = 'work') {
+  return normalizeFromOptions(sort, fallback, seriesSortMap, {
+    work_count: 'work',
+    count: 'work',
+    work_desc: 'work',
   })
 }
 

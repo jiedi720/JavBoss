@@ -14,7 +14,7 @@ import {
 import { zh } from '@/utils/i18n'
 import { actorTerms } from '@/utils/actorTabs'
 
-function SortText({ option, value, className = '' }) {
+export function SortText({ option, value, className = '' }) {
   const parts = sortLabelParts(option, value, zh)
 
   return (

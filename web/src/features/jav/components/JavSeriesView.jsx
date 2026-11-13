@@ -11,6 +11,8 @@ import VideocamOutlinedIcon from '@mui/icons-material/VideocamOutlined'
 
 import Pagination from '@/shared/ui/Pagination'
 import WaterfallLoader from '@/shared/ui/WaterfallLoader'
+import SortMenu from '@/features/jav/components/SortMenu'
+import { SERIES_SORT_OPTIONS } from '@/constants/jav'
 import useJavFavoriteCount from '@/features/favorites/hooks/useJavFavoriteCount'
 import { zh } from '@/utils/i18n'
 import { openJavDBWithAssist } from '@/utils/javdb'
@@ -39,25 +41,40 @@ export default function JavSeriesView({
   loadingMore,
   hasMore,
 }) {
+  const seriesSort = useStore((state) => state.seriesTempSort || state.seriesSort)
+  const setSeriesTempSort = useStore((state) => state.setSeriesTempSort)
+
   return (
     <>
-      <div className="sticky-pagination mb-4 flex justify-center">
-        <Pagination
-          page={page}
-          lastPage={lastPage}
-          totalItems={totalItems}
-          hasPrev={hasPrev}
-          hasNext={hasNext}
-          loading={loading}
-          buildPageUrl={buildPageUrl}
-          onFirst={onFirst}
-          onPrev={onPrev}
-          onGoToPage={onGoToPage}
-          onNext={onNext}
-          onLast={onLast}
-          waterfallMode={waterfallMode}
-          onWaterfallModeChange={onWaterfallModeChange}
-        />
+      <div className="sticky-pagination pagination-toolbar-grid relative mb-2.5 grid md:grid-cols-[1fr_auto_1fr] md:items-center">
+        <div />
+        <div className="flex justify-center overflow-x-auto">
+          <Pagination
+            page={page}
+            lastPage={lastPage}
+            totalItems={totalItems}
+            hasPrev={hasPrev}
+            hasNext={hasNext}
+            loading={loading}
+            buildPageUrl={buildPageUrl}
+            onFirst={onFirst}
+            onPrev={onPrev}
+            onGoToPage={onGoToPage}
+            onNext={onNext}
+            onLast={onLast}
+            waterfallMode={waterfallMode}
+            onWaterfallModeChange={onWaterfallModeChange}
+          />
+        </div>
+        <div className="flex justify-end">
+          <SortMenu
+            options={SERIES_SORT_OPTIONS}
+            value={seriesSort}
+            onChange={setSeriesTempSort}
+            label={zh('排序', 'Sort')}
+            ariaLabel={zh('修改当前系列排序方式', 'Change current series sort')}
+          />
+        </div>
       </div>
       {loading ? (
         <div className="mt-4 flex min-h-[200px] items-center justify-center rounded border border-dashed border-gray-200 text-gray-500 dark:border-ui-border dark:text-ui-faint">

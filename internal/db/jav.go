@@ -1479,6 +1479,38 @@ type JavSeriesSummary struct {
 	FavoriteCount int64  `json:"favorite_count"`
 }
 
+// buildJavStudioOrder maps a studio sort key to an SQL ORDER BY clause.
+// "series" sorts by how many distinct series the studio has, "name" sorts by
+// the studio name (first character), and the default keeps work count.
+func buildJavStudioOrder(sort string) string {
+	switch strings.ToLower(strings.TrimSpace(sort)) {
+	case "name":
+		return "js.name ASC, js.id ASC"
+	case "name_desc":
+		return "js.name DESC, js.id ASC"
+	case "work_asc":
+		return "work_count ASC, js.name ASC, js.id ASC"
+	case "series":
+		return "series_count DESC, work_count DESC, js.name ASC, js.id ASC"
+	case "series_asc":
+		return "series_count ASC, work_count DESC, js.name ASC, js.id ASC"
+	}
+	return "work_count DESC, js.name ASC, js.id ASC"
+}
+
+// buildJavSeriesOrder maps a series sort key to an SQL ORDER BY clause.
+func buildJavSeriesOrder(sort string) string {
+	switch strings.ToLower(strings.TrimSpace(sort)) {
+	case "name":
+		return "js.name ASC, js.id ASC"
+	case "name_desc":
+		return "js.name DESC, js.id ASC"
+	case "work_asc":
+		return "work_count ASC, js.name ASC, js.id ASC"
+	}
+	return "work_count DESC, js.name ASC, js.id ASC"
+}
+
 func applyJavStudioSearch(q *gorm.DB, search string) *gorm.DB {
 	search = strings.TrimSpace(search)
 	if search == "" {
@@ -1503,6 +1535,13 @@ func applyJavSeriesSearch(q *gorm.DB, search string) *gorm.DB {
 
 // ListJavStudios returns studios ordered by visible work count descending.
 func (store *Store) ListJavStudios(ctx context.Context, search string, limit, offset int, directoryIDs []int64, favoriteGroupIDs ...int64) ([]JavStudioSummary, int64, error) {
+	return store.ListJavStudiosSorted(ctx, search, "", limit, offset, directoryIDs, favoriteGroupIDs...)
+}
+
+// ListJavStudiosSorted lists studios ordered by sort: "name", "name_desc",
+// "work", "work_asc", "series" or "series_asc". Empty or unknown values keep
+// the historical work-count ordering.
+func (store *Store) ListJavStudiosSorted(ctx context.Context, search, sort string, limit, offset int, directoryIDs []int64, favoriteGroupIDs ...int64) ([]JavStudioSummary, int64, error) {
 	if limit <= 0 {
 		limit = 100
 	}
@@ -1543,13 +1582,13 @@ func (store *Store) ListJavStudios(ctx context.Context, search string, limit, of
 	if favoriteGroupID > 0 {
 		base = base.Joins("JOIN jav_favorite_map jfm_filter ON jfm_filter.entity_id = js.id AND jfm_filter.entity_type = ? AND jfm_filter.jav_favorite_group_id = ?", JavFavoriteEntityStudio, favoriteGroupID)
 	}
-	order := "work_count DESC, js.name ASC"
+	order := buildJavStudioOrder(sort)
 	if favoriteGroupID > 0 {
 		order = "jfm_filter.sort_order ASC, js.name ASC, js.id ASC"
 	}
 	if err := base.
 		Joins("LEFT JOIN (?) favorite_counts ON favorite_counts.entity_id = js.id", store.buildFavoriteCountQuery(ctx, JavFavoriteEntityStudio)).
-		Select("js.id, js.name, COUNT(DISTINCT j.id) AS work_count, MIN(j.code) AS sample_code, COALESCE(favorite_counts.favorite_count, 0) AS favorite_count").
+		Select("js.id, js.name, COUNT(DISTINCT j.id) AS work_count, COUNT(DISTINCT NULLIF(j.series_id, 0)) AS series_count, MIN(j.code) AS sample_code, COALESCE(favorite_counts.favorite_count, 0) AS favorite_count").
 		Group("js.id, js.name, favorite_counts.favorite_count").
 		Order(order).
 		Limit(limit).
@@ -1938,6 +1977,13 @@ func (store *Store) ListStudioCoverCodes(ctx context.Context, studioID int64, di
 
 // ListJavSeries returns series ordered by visible work count descending.
 func (store *Store) ListJavSeries(ctx context.Context, search string, limit, offset int, directoryIDs []int64, favoriteGroupIDs ...int64) ([]JavSeriesSummary, int64, error) {
+	return store.ListJavSeriesSorted(ctx, search, "", limit, offset, directoryIDs, favoriteGroupIDs...)
+}
+
+// ListJavSeriesSorted lists series ordered by sort: "name", "name_desc",
+// "work" or "work_asc". Empty or unknown values keep the historical
+// work-count ordering.
+func (store *Store) ListJavSeriesSorted(ctx context.Context, search, sort string, limit, offset int, directoryIDs []int64, favoriteGroupIDs ...int64) ([]JavSeriesSummary, int64, error) {
 	if limit <= 0 {
 		limit = 100
 	}
@@ -1980,7 +2026,7 @@ func (store *Store) ListJavSeries(ctx context.Context, search string, limit, off
 	if favoriteGroupID > 0 {
 		base = base.Joins("JOIN jav_favorite_map jfm_filter ON jfm_filter.entity_id = js.id AND jfm_filter.entity_type = ? AND jfm_filter.jav_favorite_group_id = ?", JavFavoriteEntitySeries, favoriteGroupID)
 	}
-	order := "work_count DESC, js.name ASC"
+	order := buildJavSeriesOrder(sort)
 	if favoriteGroupID > 0 {
 		order = "jfm_filter.sort_order ASC, js.name ASC, js.id ASC"
 	}

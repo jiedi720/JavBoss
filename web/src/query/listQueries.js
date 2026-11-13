@@ -62,12 +62,14 @@ export const studioQuery = (state) => ({
   offset: (state.studioPage - 1) * state.studioPageSize,
   search: state.javSearchTerm || '',
   favoriteGroupId: state.studioFavoriteGroupId,
+  sort: state.studioTempSort || state.studioSort,
 })
 export const seriesQuery = (state) => ({
   limit: state.seriesPageSize,
   offset: (state.seriesPage - 1) * state.seriesPageSize,
   search: state.javSearchTerm || '',
   favoriteGroupId: state.seriesFavoriteGroupId,
+  sort: state.seriesTempSort || state.seriesSort,
 })
 
 export const listQueryKey = (query, state) =>

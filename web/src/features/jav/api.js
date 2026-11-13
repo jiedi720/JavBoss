@@ -683,6 +683,7 @@ export async function fetchJavStudios({
   offset = 0,
   search = '',
   favoriteGroupId = null,
+  sort = '',
   signal,
 } = {}) {
   const params = new URLSearchParams()
@@ -690,6 +691,7 @@ export async function fetchJavStudios({
   params.set('offset', String(offset))
   if (search) params.set('search', search)
   if (favoriteGroupId) params.set('favorite_group_id', String(favoriteGroupId))
+  if (sort) params.set('sort', sort)
   const res = await apiFetch(`/jav/studios?${params.toString()}`, { signal })
   if (!res.ok) {
     throw await apiError(res)
@@ -760,6 +762,7 @@ export async function fetchJavSeries({
   offset = 0,
   search = '',
   favoriteGroupId = null,
+  sort = '',
   signal,
 } = {}) {
   const params = new URLSearchParams()
@@ -767,6 +770,7 @@ export async function fetchJavSeries({
   params.set('offset', String(offset))
   if (search) params.set('search', search)
   if (favoriteGroupId) params.set('favorite_group_id', String(favoriteGroupId))
+  if (sort) params.set('sort', sort)
   const res = await apiFetch(`/jav/series?${params.toString()}`, { signal })
   if (!res.ok) {
     throw await apiError(res)

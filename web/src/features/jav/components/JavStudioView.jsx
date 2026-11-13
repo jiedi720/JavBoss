@@ -13,6 +13,8 @@ import AppModal from '@/shared/ui/AppModal'
 import Pagination from '@/shared/ui/Pagination'
 import { SeriesCard } from '@/features/jav/components/JavSeriesView'
 import WaterfallLoader from '@/shared/ui/WaterfallLoader'
+import SortMenu from '@/features/jav/components/SortMenu'
+import { STUDIO_SORT_OPTIONS } from '@/constants/jav'
 import { useStore } from '@/store'
 import { StudioDetailNavigationContext } from '@/navigation/studioDetailNavigation'
 import { getStudioCodePrefixes, getStudioSeries } from '@/utils/javStudio'
@@ -48,25 +50,40 @@ export default function JavStudioView({
   hasMore,
   onMerged,
 }) {
+  const studioSort = useStore((state) => state.studioTempSort || state.studioSort)
+  const setStudioTempSort = useStore((state) => state.setStudioTempSort)
+
   return (
     <>
-      <div className="sticky-pagination mb-4 flex justify-center">
-        <Pagination
-          page={page}
-          lastPage={lastPage}
-          totalItems={totalItems}
-          hasPrev={hasPrev}
-          hasNext={hasNext}
-          loading={loading}
-          buildPageUrl={buildPageUrl}
-          onFirst={onFirst}
-          onPrev={onPrev}
-          onGoToPage={onGoToPage}
-          onNext={onNext}
-          onLast={onLast}
-          waterfallMode={waterfallMode}
-          onWaterfallModeChange={onWaterfallModeChange}
-        />
+      <div className="sticky-pagination pagination-toolbar-grid relative mb-2.5 grid md:grid-cols-[1fr_auto_1fr] md:items-center">
+        <div />
+        <div className="flex justify-center overflow-x-auto">
+          <Pagination
+            page={page}
+            lastPage={lastPage}
+            totalItems={totalItems}
+            hasPrev={hasPrev}
+            hasNext={hasNext}
+            loading={loading}
+            buildPageUrl={buildPageUrl}
+            onFirst={onFirst}
+            onPrev={onPrev}
+            onGoToPage={onGoToPage}
+            onNext={onNext}
+            onLast={onLast}
+            waterfallMode={waterfallMode}
+            onWaterfallModeChange={onWaterfallModeChange}
+          />
+        </div>
+        <div className="flex justify-end">
+          <SortMenu
+            options={STUDIO_SORT_OPTIONS}
+            value={studioSort}
+            onChange={setStudioTempSort}
+            label={zh('排序', 'Sort')}
+            ariaLabel={zh('修改当前片商排序方式', 'Change current studio sort')}
+          />
+        </div>
       </div>
       {loading ? (
         <div className="mt-4 flex min-h-[200px] items-center justify-center rounded border border-dashed border-gray-200 text-gray-500 dark:border-ui-border dark:text-ui-faint">

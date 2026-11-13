@@ -4,6 +4,8 @@ import {
   createDefaultIdolProfileFilters,
   normalizeIdolSort,
   normalizeIdolProfileFilters,
+  normalizeSeriesSort,
+  normalizeStudioSort,
 } from '@/constants/jav'
 
 export function createCatalogSlice({ set, lists }) {
@@ -20,6 +22,8 @@ export function createCatalogSlice({ set, lists }) {
     idolError: null,
     studioPage: 1,
     studioPageSize: JAV_STUDIO_PAGE_SIZE,
+    studioSort: 'work',
+    studioTempSort: '',
     studioItems: [],
     studioTotal: 0,
     studioLoading: false,
@@ -40,6 +44,8 @@ export function createCatalogSlice({ set, lists }) {
       })),
     seriesPage: 1,
     seriesPageSize: JAV_SERIES_PAGE_SIZE,
+    seriesSort: 'work',
+    seriesTempSort: '',
     seriesItems: [],
     seriesTotal: 0,
     seriesLoading: false,
@@ -69,6 +75,18 @@ export function createCatalogSlice({ set, lists }) {
       set({ idolProfileFilters: normalizeIdolProfileFilters(value), idolPage: 1 })
     },
     setIdolPage: (p) => set({ idolPage: p }),
+    setStudioSort: (sort) => {
+      set({ studioSort: normalizeStudioSort(sort), studioTempSort: '', studioPage: 1 })
+    },
+    setStudioTempSort: (sort) => {
+      set({ studioTempSort: normalizeStudioSort(sort, '') })
+    },
+    setSeriesSort: (sort) => {
+      set({ seriesSort: normalizeSeriesSort(sort), seriesTempSort: '', seriesPage: 1 })
+    },
+    setSeriesTempSort: (sort) => {
+      set({ seriesTempSort: normalizeSeriesSort(sort, '') })
+    },
     setStudioPage: (p) => set({ studioPage: p }),
     setSeriesPage: (p) => set({ seriesPage: p }),
     loadJavIdols: lists.idol.load,
