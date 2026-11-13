@@ -51,7 +51,6 @@ import SelectionTagsModal from '@/features/tags/components/SelectionTagsModal'
 import SelectionJavTagsModal from '@/features/tags/components/SelectionJavTagsModal'
 import { createJavTag } from '@/features/jav/api'
 import TagPickerModal from '@/features/tags/components/TagPickerModal'
-import VideoTagManager from '@/features/tags/components/VideoTagManager'
 import JavTagManager from '@/features/tags/components/JavTagManager'
 import GlobalSettings from '@/features/settings/components/GlobalSettings'
 import Toast from '@/shared/ui/Toast'
@@ -138,7 +137,6 @@ export default function App() {
   )
 
   const [tagModalOpen, setTagModalOpen] = useState(false)
-  const [tagModalApplyMode, setTagModalApplyMode] = useState('replace')
 
   const [displaySettingsTab, setDisplaySettingsTab] = useState(null)
   const [globalSettingsOpen, setGlobalSettingsOpen] = useState(false)
@@ -358,10 +356,8 @@ export default function App() {
   }, [])
 
   const handleOpenTagModal = useCallback(() => {
-    loadTags()
-    setTagModalApplyMode('replace')
     setTagModalOpen(true)
-  }, [loadTags])
+  }, [])
 
   const {
     idolFavoriteModalOpen,
@@ -995,10 +991,17 @@ export default function App() {
         saveDisabled={!tagPickerDirty}
       />
 
-      <VideoTagManager
+      <JavTagManager
         open={tagModalOpen}
         onClose={() => setTagModalOpen(false)}
-        tagModalApplyMode={tagModalApplyMode}
+        displayJavTagOptions={displayJavTagOptions}
+        applyJavTagFilter={(tagIds) => {
+          const ids = new Set((tagIds || []).map(Number))
+          const names = (displayJavTagOptions || [])
+            .filter((tag) => ids.has(Number(tag.id)))
+            .map((tag) => tag.name)
+          useStore.getState().setSelectedTags(names)
+        }}
       />
       <JavTagManager
         open={javTagModalOpen}

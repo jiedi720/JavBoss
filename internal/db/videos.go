@@ -93,12 +93,14 @@ func (store *Store) ListVideos(ctx context.Context, limit, offset int, tagNames 
 
 	cleanedTags := normalizeTagNames(tagNames)
 	if len(cleanedTags) > 0 {
+		// Videos have no tag library of their own: filtering by tag matches the
+		// tags of the JAV work each video location is linked to.
 		query = query.
-			Joins("JOIN video_tag ON video_tag.video_id = video_location.video_id").
-			Joins("JOIN tag ON tag.id = video_tag.tag_id").
-			Where("tag.name IN ?", cleanedTags).
+			Joins("JOIN jav_tag_map vtm_video ON vtm_video.jav_id = video_location.jav_id").
+			Joins("JOIN jav_tag jt_video ON jt_video.id = vtm_video.jav_tag_id").
+			Where("jt_video.name IN ?", cleanedTags).
 			Group("video_location.id").
-			Having("COUNT(DISTINCT tag.name) = ?", len(cleanedTags))
+			Having("COUNT(DISTINCT jt_video.name) = ?", len(cleanedTags))
 	}
 
 	var locations []models.VideoLocation
@@ -160,9 +162,9 @@ func (store *Store) CountVideos(ctx context.Context, tagNames []string, search s
 		Joins("JOIN directory ON directory.id = video_location.directory_id").
 		Where(activeDirectoryWhereSQL("directory")).
 		Select("video_location.id").
-		Joins("JOIN video_tag ON video_tag.video_id = video_location.video_id").
-		Joins("JOIN tag ON tag.id = video_tag.tag_id").
-		Where("tag.name IN ?", cleanedTags)
+		Joins("JOIN jav_tag_map vtm_video ON vtm_video.jav_id = video_location.jav_id").
+		Joins("JOIN jav_tag jt_video ON jt_video.id = vtm_video.jav_tag_id").
+		Where("jt_video.name IN ?", cleanedTags)
 	if hideRecognizedJav {
 		sub = sub.Where("video_location.jav_id IS NULL")
 	}
@@ -174,7 +176,7 @@ func (store *Store) CountVideos(ctx context.Context, tagNames []string, search s
 	}
 
 	sub = sub.Group("video_location.id").
-		Having("COUNT(DISTINCT tag.name) = ?", len(cleanedTags))
+		Having("COUNT(DISTINCT jt_video.name) = ?", len(cleanedTags))
 
 	var count int64
 	if err := store.conn.Table("(?) as m", sub).Count(&count).Error; err != nil {
