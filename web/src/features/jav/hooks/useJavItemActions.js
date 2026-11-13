@@ -107,6 +107,20 @@ export default function useJavItemActions({
   const canOpen = openableVideos.length > 0
   const encodedCode = code ? encodeURIComponent(code) : ''
   const javdbSearchURL = encodedCode ? `https://javdb.com/search?q=${encodedCode}&f=all` : ''
+  // DMM addresses a work by its cid: lowercase label plus the number exactly as
+  // written, so HMN-929 -> hmn929 and SSIS-001 -> ssis001.
+  const dmmCid = code ? code.toLowerCase().replace(/[^a-z0-9]/g, '') : ''
+  // MGStage product URLs need the maker id in front of the code (259LUXU-1903,
+  // 390JAC-068). Labels without a known maker id fall back to site search so the
+  // link still lands somewhere useful.
+  const MGSTAGE_MAKER_IDS = { LUXU: '259', JAC: '390' }
+  const mgstageLabel = code ? String(code).split('-')[0].toUpperCase() : ''
+  const mgstageMakerId = MGSTAGE_MAKER_IDS[mgstageLabel] || ''
+  const mgstageURL = !encodedCode
+    ? ''
+    : mgstageMakerId
+      ? `https://www.mgstage.com/product/product_detail/${mgstageMakerId}${String(code).toUpperCase()}/`
+      : `https://www.mgstage.com/search/cSearch.php?search_word=${encodedCode}`
   const favoriteCount = Number(item?.favorite_count) || 0
   const itemFavoriteRating = Number(item?.favorite_rating) || 0
   const [favoriteRating, setFavoriteRating] = useState(itemFavoriteRating)
@@ -168,8 +182,14 @@ export default function useJavItemActions({
           {
             key: 'dmm',
             name: 'DMM',
-            href: `https://www.dmm.co.jp/search/=/searchstr=${encodedCode}/`,
+            href: `https://www.dmm.co.jp/mono/dvd/-/detail/=/cid=${dmmCid}/`,
             icon: '/ico/dmm.ico',
+          },
+          {
+            key: 'mgstage',
+            name: 'MGStage',
+            href: mgstageURL,
+            icon: '/ico/mgstage.ico',
           },
         ]
       : [
@@ -207,8 +227,14 @@ export default function useJavItemActions({
           {
             key: 'dmm',
             name: 'DMM',
-            href: `https://www.dmm.co.jp/search/=/searchstr=${encodedCode}/`,
+            href: `https://www.dmm.co.jp/mono/dvd/-/detail/=/cid=${dmmCid}/`,
             icon: '/ico/dmm.ico',
+          },
+          {
+            key: 'mgstage',
+            name: 'MGStage',
+            href: mgstageURL,
+            icon: '/ico/mgstage.ico',
           },
         ]
     : []
