@@ -524,6 +524,12 @@ export function JavIdolEditModal({
               value={form.chinese_name}
               onChange={(value) => setField('chinese_name', value)}
             />
+            <TextField
+              label={zh('生日', 'Birth date')}
+              value={form.birth_date}
+              type="date"
+              onChange={(value) => setField('birth_date', value)}
+            />
             {!terms.male && (
               <TextField
                 label={zh('身高', 'Height')}
@@ -533,12 +539,6 @@ export function JavIdolEditModal({
                 onChange={(value) => setField('height_cm', value)}
               />
             )}
-            <TextField
-              label={zh('生日', 'Birth date')}
-              value={form.birth_date}
-              type="date"
-              onChange={(value) => setField('birth_date', value)}
-            />
             {!terms.male && (
               <>
                 <TextField
