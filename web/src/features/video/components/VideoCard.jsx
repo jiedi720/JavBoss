@@ -408,7 +408,7 @@ export default function VideoCard({
           {showTagEditor ? (
             <button
               type="button"
-              className="card-modal-trigger card-hover-focus-visible absolute right-12 top-2 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-black/65 text-white opacity-0 shadow-lg shadow-black/40 transition hover:bg-black/80 group-hover/cover:opacity-100"
+              className="card-modal-trigger card-hover-focus-visible absolute right-10 top-2 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-black/65 text-white opacity-0 shadow-lg shadow-black/40 transition hover:bg-black/80 group-hover/cover:opacity-100"
               title={zh('修改标签', 'Edit tags')}
               aria-label={zh('修改标签', 'Edit tags')}
               onClick={(e) => {
