@@ -28,6 +28,8 @@ import StarRoundedIcon from '@mui/icons-material/StarRounded'
 import FavoriteRoundedIcon from '@mui/icons-material/FavoriteRounded'
 import FavoriteBorderRoundedIcon from '@mui/icons-material/FavoriteBorderRounded'
 import RemoveCircleOutlineRoundedIcon from '@mui/icons-material/RemoveCircleOutlineRounded'
+import CheckBoxRoundedIcon from '@mui/icons-material/CheckBoxRounded'
+import CheckBoxOutlineBlankRoundedIcon from '@mui/icons-material/CheckBoxOutlineBlankRounded'
 import { getErrorMessage } from '@/utils/errors'
 import JavFavoriteModal from '@/features/favorites/components/JavFavoriteModal'
 import {
@@ -183,7 +185,6 @@ export default function VideoCard({
   const fullPath = buildVideoFullPath(video)
   const displayPath = displayHostPath(fullPath, useHostPaths)
   const canOpen = Boolean(directoryPath && videoPath)
-  const inputId = `check-${video?.location_id || video.id}`
   const javCode = String(video?.jav?.code || video?.locations?.[0]?.jav?.code || '').trim()
   const hasScrapeOverride = Boolean(String(video?.jav_scrape_override || '').trim())
   const canOpenFile = Boolean(onOpenFile)
@@ -364,20 +365,34 @@ export default function VideoCard({
               </span>
             </Tooltip>
             {showSelection ? (
-              <input
-                id={inputId}
-                type="checkbox"
-                checked={checked}
-                onChange={onToggle}
-                className={`video-select-check card-hover-focus-visible shrink-0 transition-opacity [@media(hover:none)]:opacity-100 ${
-                  checked ? 'opacity-100' : 'opacity-0 group-hover/cover:opacity-100'
-                }`}
-                onClick={(e) => e.stopPropagation()}
-                onPointerUp={(e) => {
-                  e.currentTarget.blur()
-                }}
-                aria-label={zh(`选择 ${displayName}`, `Select ${displayName}`)}
-              />
+              <Tooltip
+                title={checked ? zh('取消选择', 'Deselect') : zh('选择', 'Select')}
+                placement="top"
+                arrow
+              >
+                <button
+                  type="button"
+                  role="checkbox"
+                  aria-checked={checked}
+                  aria-label={zh(`选择 ${displayName}`, `Select ${displayName}`)}
+                  onKeyDown={(event) => {
+                    if (event.key === ' ' || event.key === 'Enter') event.stopPropagation()
+                  }}
+                  onClick={(event) => {
+                    event.stopPropagation()
+                    onToggle?.()
+                  }}
+                  className={`card-hover-focus-visible flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-black/65 text-white shadow-lg shadow-black/40 transition hover:bg-black/80 [@media(hover:none)]:opacity-100 ${
+                    checked ? 'text-sky-300 opacity-100' : 'opacity-0 group-hover/cover:opacity-100'
+                  }`}
+                >
+                  {checked ? (
+                    <CheckBoxRoundedIcon sx={{ fontSize: 18 }} />
+                  ) : (
+                    <CheckBoxOutlineBlankRoundedIcon sx={{ fontSize: 18 }} />
+                  )}
+                </button>
+              </Tooltip>
             ) : null}
           </div>
           <button
