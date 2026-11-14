@@ -414,7 +414,9 @@ export default function VideoCard({
           </button>
           {javCode ? (
             <div
-              className="absolute right-12 top-2 z-10 max-w-[calc(100%-4.5rem)] truncate rounded bg-black/70 px-2 py-1 text-xs text-white"
+              className={`absolute right-12 top-2 z-10 max-w-[calc(100%-4.5rem)] truncate rounded bg-black/70 px-2 py-1 text-xs text-white transition-opacity ${
+                favoriteRatingEditing ? 'pointer-events-none opacity-0' : 'opacity-100'
+              }`}
               title={zh(`已刮削：${javCode}`, `Scraped: ${javCode}`)}
             >
               {zh(`已刮削 ${javCode}`, `Scraped ${javCode}`)}
