@@ -1,5 +1,5 @@
 import Tooltip from '@/shared/ui/Tooltip'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Popover } from '@mui/material'
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
 import DriveFileRenameOutlineIcon from '@mui/icons-material/DriveFileRenameOutline'
@@ -65,7 +65,8 @@ export default function VideoCard({
   const [favoriteRatingError, setFavoriteRatingError] = useState('')
   const [favoriteRatingEditing, setFavoriteRatingEditing] = useState(false)
   const [favoriteRatingPreview, setFavoriteRatingPreview] = useState(null)
-  const favoriteRatingIconSize = 21
+  const favoriteRatingIconSize = 18
+  const ratingZeroZoneRef = useRef(false)
   const favoriteRatingTooltipValue = favoriteRatingPreview ?? favoriteRating
   const hasFavoriteRatingTooltipValue = favoriteRatingPreview !== null || favoriteRating > 0
   const favoriteRatingWidth = !favoriteRatingEditing
@@ -304,13 +305,37 @@ export default function VideoCard({
               <span
                 role="group"
                 aria-label={zh('喜爱度评分', 'Favorite rating')}
-                className={`flex items-center rounded-full bg-black/70 px-1.5 py-0.5 shadow-lg shadow-black/50 transition-opacity ${
+                className={`flex items-center rounded-full bg-black/70 px-1 py-0.5 shadow-lg shadow-black/50 transition-opacity ${
                   favoriteRatingSaving
                     ? 'opacity-60'
                     : favoriteRating > 0
                       ? 'opacity-100'
                       : 'card-hover-focus-visible opacity-0 group-hover/cover:opacity-100'
                 }`}
+                onMouseEnter={() => setFavoriteRatingEditing(true)}
+                onMouseMove={(event) => {
+                  const root = event.currentTarget.querySelector('.MuiRating-root')
+                  const wrap = root && root.parentElement
+                  // The wrapper animates its width, so getBoundingClientRect lags
+                  // behind in background tabs. Its inline style width is the
+                  // committed value and tells us whether the hearts are expanded.
+                  const expanded = wrap && Number.parseFloat(wrap.style.width) >= 50
+                  const inZeroZone = Boolean(
+                    expanded && root && event.clientX < root.getBoundingClientRect().left + 4
+                  )
+                  ratingZeroZoneRef.current = inZeroZone
+                  setFavoriteRatingPreview((current) => {
+                    if (inZeroZone) return 0
+                    if (current === 0) return null
+                    return current
+                  })
+                }}
+                onClickCapture={(event) => {
+                  if (!ratingZeroZoneRef.current) return
+                  event.stopPropagation()
+                  event.preventDefault()
+                  handleFavoriteRatingChange(event, 0)
+                }}
               >
                 <span
                   className="flex overflow-hidden transition-[width] duration-150"
@@ -367,22 +392,36 @@ export default function VideoCard({
                     event.stopPropagation()
                     onToggle?.()
                   }}
-                  className={`card-hover-focus-visible flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-black/65 text-white shadow-lg shadow-black/40 transition hover:bg-black/80 [@media(hover:none)]:opacity-100 ${
+                  className={`card-hover-focus-visible flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-black/65 text-white shadow-lg shadow-black/40 transition hover:bg-black/80 [@media(hover:none)]:opacity-100 ${
                     checked ? 'text-sky-300 opacity-100' : 'opacity-0 group-hover/cover:opacity-100'
                   }`}
                 >
                   {checked ? (
-                    <CheckBoxRoundedIcon sx={{ fontSize: 18 }} />
+                    <CheckBoxRoundedIcon sx={{ fontSize: 16 }} />
                   ) : (
-                    <CheckBoxOutlineBlankRoundedIcon sx={{ fontSize: 18 }} />
+                    <CheckBoxOutlineBlankRoundedIcon sx={{ fontSize: 16 }} />
                   )}
                 </button>
               </Tooltip>
             ) : null}
           </div>
+          {showTagEditor ? (
+            <button
+              type="button"
+              className="card-modal-trigger card-hover-focus-visible absolute right-12 top-2 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-black/65 text-white opacity-0 shadow-lg shadow-black/40 transition hover:bg-black/80 group-hover/cover:opacity-100"
+              title={zh('修改标签', 'Edit tags')}
+              aria-label={zh('修改标签', 'Edit tags')}
+              onClick={(e) => {
+                e.stopPropagation()
+                onOpenTagPicker()
+              }}
+            >
+              <LocalOfferOutlinedIcon sx={{ fontSize: 16 }} />
+            </button>
+          ) : null}
           <button
             type="button"
-            className={`card-modal-trigger card-hover-focus-visible absolute right-2 top-2 z-10 flex h-8 w-8 items-center justify-center rounded-full shadow-lg shadow-black/40 transition ${
+            className={`card-modal-trigger card-hover-focus-visible absolute right-2 top-2 z-10 flex h-7 w-7 items-center justify-center rounded-full shadow-lg shadow-black/40 transition ${
               favoriteCount > 0
                 ? 'bg-amber-400 text-amber-950 hover:bg-amber-300'
                 : 'bg-black/65 text-white opacity-0 hover:bg-black/80 group-hover/cover:opacity-100'
@@ -392,14 +431,14 @@ export default function VideoCard({
             onClick={handleOpenFavorites}
           >
             {favoriteCount > 0 ? (
-              <StarRoundedIcon sx={{ fontSize: 18 }} />
+              <StarRoundedIcon sx={{ fontSize: 16 }} />
             ) : (
-              <StarBorderRoundedIcon sx={{ fontSize: 18 }} />
+              <StarBorderRoundedIcon sx={{ fontSize: 16 }} />
             )}
           </button>
           {javCode ? (
             <div
-              className={`absolute right-12 top-2 z-10 max-w-[calc(100%-4.5rem)] truncate rounded bg-black/70 px-2 py-1 text-xs text-white transition-opacity ${
+              className={`absolute right-2 top-12 z-10 max-w-[calc(100%-1rem)] truncate rounded bg-black/70 px-2 py-1 text-xs text-white transition-opacity ${
                 favoriteRatingEditing ? 'pointer-events-none opacity-0' : 'opacity-100'
               }`}
               title={zh(`已刮削：${javCode}`, `Scraped: ${javCode}`)}
@@ -419,21 +458,6 @@ export default function VideoCard({
             </button>
           </div>
           <div className="card-hover-focus-visible absolute bottom-2 right-2 z-10 flex items-center gap-1 opacity-0 transition-opacity group-hover/cover:opacity-100">
-            {showTagEditor ? (
-              <Tooltip title={zh('修改标签', 'Edit tags')}>
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    onOpenTagPicker()
-                  }}
-                  aria-label={zh('修改标签', 'Edit tags')}
-                  className={coverButtonClassName}
-                >
-                  <LocalOfferOutlinedIcon className="h-4 w-4" fontSize="inherit" />
-                </button>
-              </Tooltip>
-            ) : null}
             {canOpenFile ? (
               <Tooltip title={openFileLabel || zh('用默认程序打开', 'Open with default app')}>
                 <button
