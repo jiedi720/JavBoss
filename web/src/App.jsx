@@ -80,6 +80,9 @@ export default function App() {
     javFavoriteRatingEnabled,
     javFavoriteRatingMin,
     javFavoriteRatingMax,
+    videoFavoriteRatingEnabled,
+    videoFavoriteRatingMin,
+    videoFavoriteRatingMax,
     javFavoriteGroupId,
     javItems,
     loadJavTags,
@@ -125,6 +128,9 @@ export default function App() {
       javFavoriteRatingEnabled: s.javFavoriteRatingEnabled,
       javFavoriteRatingMin: s.javFavoriteRatingMin,
       javFavoriteRatingMax: s.javFavoriteRatingMax,
+      videoFavoriteRatingEnabled: s.videoFavoriteRatingEnabled,
+      videoFavoriteRatingMin: s.videoFavoriteRatingMin,
+      videoFavoriteRatingMax: s.videoFavoriteRatingMax,
       javFavoriteGroupId: s.javFavoriteGroupId,
       javItems: s.javItems,
       loadJavTags: s.loadJavTags,
@@ -523,13 +529,12 @@ export default function App() {
         onOpenDownload={() => setDownloadOpen(true)}
         onOpenGlobalSettings={() => setGlobalSettingsOpen(true)}
         onOpenDisplaySettings={openDisplaySettings}
-        onOpenJavTagModal={handleOpenJavTagModal}
+        onOpenJavTagModal={isJavMode ? handleOpenJavTagModal : handleOpenTagModal}
         onJavPrefixClick={handleSelectJavPrefix}
         onSelectTab={handleSelectSideTab}
         showDirectorySetupHint={showDirectorySetupHint}
       />
       <TopBar
-        onOpenVideoTags={handleOpenTagModal}
         buildFavoriteGroupUrl={(groupId) => {
           const parsedGroupId = Number(groupId)
           const targetGroupId =
@@ -552,6 +557,7 @@ export default function App() {
               random: false,
               tempSort: '',
               favoriteGroupId: targetGroupId,
+              favoriteRatingEnabled: false,
             })
           }
           if (targetGroupId === currentGroupId) {
@@ -585,19 +591,20 @@ export default function App() {
         favoriteGroupsLoading={activeFavoriteGroupsLoading}
         favoriteGroupsError={activeFavoriteGroupsError}
         favoriteManagerOpen={idolFavoriteManageOpen}
-        favoriteRatingEnabled={javFavoriteRatingEnabled}
-        favoriteRatingMin={javFavoriteRatingMin}
-        favoriteRatingMax={javFavoriteRatingMax}
+        favoriteRatingEnabled={isJavMode ? javFavoriteRatingEnabled : videoFavoriteRatingEnabled}
+        favoriteRatingMin={isJavMode ? javFavoriteRatingMin : videoFavoriteRatingMin}
+        favoriteRatingMax={isJavMode ? javFavoriteRatingMax : videoFavoriteRatingMax}
         idolProfileFilters={idolProfileFilters}
         filterItems={activeFilterItems}
         hasActiveControlFilter={
-          isJavMode &&
-          ((javTab === 'list' && javFavoriteRatingEnabled) ||
-            (isActorListTab(javTab) &&
-              (Boolean(String(javSearchTerm || '').trim()) ||
-                Object.values(normalizeIdolProfileFilters(idolProfileFilters)).some(
-                  (value) => value.enabled
-                ))))
+          (!isJavMode && videoFavoriteRatingEnabled) ||
+          (isJavMode &&
+            ((javTab === 'list' && javFavoriteRatingEnabled) ||
+              (isActorListTab(javTab) &&
+                (Boolean(String(javSearchTerm || '').trim()) ||
+                  Object.values(normalizeIdolProfileFilters(idolProfileFilters)).some(
+                    (value) => value.enabled
+                  )))))
         }
         isJavMode={isJavMode}
         javSearchHref={javSearchHref}

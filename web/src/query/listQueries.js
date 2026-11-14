@@ -21,6 +21,9 @@ export function videoQuery(state) {
     seed: state.randomMode ? state.randomSeed : null,
     hideJav: state.videoHideJav,
     favoriteGroupId: state.videoFavoriteGroupId || null,
+    favoriteRatingEnabled: state.videoFavoriteRatingEnabled,
+    favoriteRatingMin: state.videoFavoriteRatingMin,
+    favoriteRatingMax: state.videoFavoriteRatingMax,
   }
 }
 

@@ -80,6 +80,12 @@ export const parseUrlState = (searchString = window.location.search, options = {
   const rawView = sp.get('view')
   const view = rawView === 'jav' ? 'jav' : rawView === 'video' ? 'video' : defaultView
   const videoTempSort = normalizeVideoSort((sp.get('temp_sort') || '').trim(), '')
+  const favoriteRatingMin = parseFavoriteRating(sp.get('favorite_rating_min'))
+  const favoriteRatingMax = parseFavoriteRating(sp.get('favorite_rating_max'))
+  const favoriteRatingEnabled =
+    favoriteRatingMin !== null &&
+    favoriteRatingMax !== null &&
+    favoriteRatingMin <= favoriteRatingMax
 
   const video = {
     page: parseIntSafe(sp.get('page'), 1),
@@ -91,6 +97,9 @@ export const parseUrlState = (searchString = window.location.search, options = {
     random: sp.get('random') === '1',
     seed: clampSeed(sp.get('seed')),
     favoriteGroupId: parsePositiveInt(sp.get('favorite_group_id')),
+    favoriteRatingEnabled,
+    favoriteRatingMin: favoriteRatingEnabled ? favoriteRatingMin : 0.5,
+    favoriteRatingMax: favoriteRatingEnabled ? favoriteRatingMax : 5,
   }
 
   const rawJavTab = sp.get('tab')
@@ -110,12 +119,6 @@ export const parseUrlState = (searchString = window.location.search, options = {
   const javTempSort = isActorListTab(javTab)
     ? normalizeIdolSort(rawJavTempSort, '')
     : normalizeJavSort(rawJavTempSort, '')
-  const favoriteRatingMin = parseFavoriteRating(sp.get('favorite_rating_min'))
-  const favoriteRatingMax = parseFavoriteRating(sp.get('favorite_rating_max'))
-  const favoriteRatingEnabled =
-    favoriteRatingMin !== null &&
-    favoriteRatingMax !== null &&
-    favoriteRatingMin <= favoriteRatingMax
 
   const jav = {
     tab: javTab,
@@ -236,6 +239,10 @@ export const buildUrlFromState = (state, basePath = window.location.pathname) =>
   if (state.video.favoriteGroupId) {
     sp.set('favorite_group_id', String(state.video.favoriteGroupId))
   }
+  if (state.video.favoriteRatingEnabled) {
+    sp.set('favorite_rating_min', String(state.video.favoriteRatingMin))
+    sp.set('favorite_rating_max', String(state.video.favoriteRatingMax))
+  }
   if (state.video.random) {
     sp.set('random', '1')
     if (state.video.seed) sp.set('seed', String(state.video.seed))
@@ -265,6 +272,9 @@ export const normalizeUrlStateFromStore = (store, tagsByName) => {
       random: store.randomMode,
       seed: store.randomMode ? store.randomSeed : null,
       favoriteGroupId: store.videoFavoriteGroupId || null,
+      favoriteRatingEnabled: Boolean(store.videoFavoriteRatingEnabled),
+      favoriteRatingMin: store.videoFavoriteRatingMin ?? 0.5,
+      favoriteRatingMax: store.videoFavoriteRatingMax ?? 5,
     },
     jav: {
       tab:

@@ -42,6 +42,9 @@ export function createVideoSlice({ set, get, lists }) {
     searchTerm: '',
     videoDirectoryId: null,
     videoSubdirectory: '',
+    videoFavoriteRatingEnabled: false,
+    videoFavoriteRatingMin: 0.5,
+    videoFavoriteRatingMax: 5,
     setVideoDirectoryFilter: (directory) =>
       set({
         videoDirectoryId: directory?.directory_id || null,

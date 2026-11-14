@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"net/http"
 	"net/url"
 	"os"
@@ -26,6 +27,32 @@ import (
 	"javboss/internal/video/screenshot"
 	"javboss/internal/video/stream"
 )
+
+// parseVideoFavoriteRatingRange reads the inclusive half-star rating range used
+// by the video list filter. Both bounds must be supplied together and ordered.
+func parseVideoFavoriteRatingRange(c *gin.Context) (*float64, *float64, bool) {
+	minParam := strings.TrimSpace(c.Query("favorite_rating_min"))
+	maxParam := strings.TrimSpace(c.Query("favorite_rating_max"))
+	if minParam == "" && maxParam == "" {
+		return nil, nil, true
+	}
+	if minParam == "" || maxParam == "" {
+		respondLocalizedError(c, http.StatusBadRequest, "喜爱度范围无效", "Invalid favorite rating range")
+		return nil, nil, false
+	}
+	parsedMin, minErr := strconv.ParseFloat(minParam, 64)
+	parsedMax, maxErr := strconv.ParseFloat(maxParam, 64)
+	if minErr != nil || maxErr != nil ||
+		math.IsNaN(parsedMin) || math.IsNaN(parsedMax) ||
+		math.IsInf(parsedMin, 0) || math.IsInf(parsedMax, 0) ||
+		parsedMin < 0.5 || parsedMax > 5 || parsedMin > parsedMax ||
+		math.Abs(parsedMin*2-math.Round(parsedMin*2)) > 1e-9 ||
+		math.Abs(parsedMax*2-math.Round(parsedMax*2)) > 1e-9 {
+		respondLocalizedError(c, http.StatusBadRequest, "喜爱度范围无效", "Invalid favorite rating range")
+		return nil, nil, false
+	}
+	return &parsedMin, &parsedMax, true
+}
 
 // listVideos accepts sort=watched (longest first) or watched_asc (shortest first)
 // for cumulative watch time; legacy play_count sort values are aliases.
@@ -53,15 +80,26 @@ func listVideos(c *gin.Context) {
 		}
 		seed = &parsed
 	}
+	ratingMin, ratingMax, ratingValid := parseVideoFavoriteRatingRange(c)
+	if !ratingValid {
+		return
+	}
+	videoFilter := dbpkg.VideoFilter{
+		HideJav:           hideJav,
+		Subdirectory:      subdirectory,
+		FavoriteGroupID:   favoriteGroupID,
+		FavoriteRatingMin: ratingMin,
+		FavoriteRatingMax: ratingMax,
+	}
 
-	videos, err := dbpkg.Default().ListVideos(c.Request.Context(), limit, offset, tagFilter, search, sort, seed, directoryIDs, dbpkg.VideoFilter{HideJav: hideJav, Subdirectory: subdirectory, FavoriteGroupID: favoriteGroupID})
+	videos, err := dbpkg.Default().ListVideos(c.Request.Context(), limit, offset, tagFilter, search, sort, seed, directoryIDs, videoFilter)
 	if err != nil {
 		logging.Error("list videos error: %v", err)
 		respondLocalizedError(c, http.StatusInternalServerError, "加载视频列表失败", "Failed to load videos")
 		return
 	}
 
-	total, err := dbpkg.Default().CountVideos(c.Request.Context(), tagFilter, search, directoryIDs, dbpkg.VideoFilter{HideJav: hideJav, Subdirectory: subdirectory, FavoriteGroupID: favoriteGroupID})
+	total, err := dbpkg.Default().CountVideos(c.Request.Context(), tagFilter, search, directoryIDs, videoFilter)
 	if err != nil {
 		logging.Error("count videos error: %v", err)
 		respondLocalizedError(c, http.StatusInternalServerError, "统计视频数量失败", "Failed to count videos")

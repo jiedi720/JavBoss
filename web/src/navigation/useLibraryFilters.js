@@ -53,6 +53,9 @@ export default function useLibraryFilters({
     javFavoriteRatingMin,
     javFavoriteRatingMax,
     javRandomMode,
+    videoFavoriteRatingEnabled,
+    videoFavoriteRatingMin,
+    videoFavoriteRatingMax,
   } = useStore(
     useShallow((state) => ({
       setSearchTerm: state.setSearchTerm,
@@ -80,6 +83,9 @@ export default function useLibraryFilters({
       javFavoriteRatingMin: state.javFavoriteRatingMin,
       javFavoriteRatingMax: state.javFavoriteRatingMax,
       javRandomMode: state.javRandomMode,
+      videoFavoriteRatingEnabled: state.videoFavoriteRatingEnabled,
+      videoFavoriteRatingMin: state.videoFavoriteRatingMin,
+      videoFavoriteRatingMax: state.videoFavoriteRatingMax,
     }))
   )
   const [javResolvedIdols, setJavResolvedIdols] = useState({})
@@ -269,9 +275,13 @@ export default function useLibraryFilters({
 
   const handleFavoriteRatingEnabledChange = useCallback(
     (enabled) => {
+      if (!isJavMode) {
+        updateVideoFilters({ videoFavoriteRatingEnabled: Boolean(enabled) })
+        return
+      }
       updateJavFilters({ javFavoriteRatingEnabled: Boolean(enabled) })
     },
-    [updateJavFilters]
+    [isJavMode, updateJavFilters, updateVideoFilters]
   )
 
   const handleFavoriteRatingRangeChange = useCallback(
@@ -280,12 +290,20 @@ export default function useLibraryFilters({
       const min = Number(range[0])
       const max = Number(range[1])
       if (!Number.isFinite(min) || !Number.isFinite(max) || min > max) return
+      if (!isJavMode) {
+        updateVideoFilters({
+          videoFavoriteRatingEnabled: true,
+          videoFavoriteRatingMin: min,
+          videoFavoriteRatingMax: max,
+        })
+        return
+      }
       updateJavFilters({
         javFavoriteRatingMin: min,
         javFavoriteRatingMax: max,
       })
     },
-    [updateJavFilters]
+    [isJavMode, updateJavFilters, updateVideoFilters]
   )
 
   const handleIdolProfileFilterChange = useCallback(
@@ -323,6 +341,18 @@ export default function useLibraryFilters({
             updateVideoFilters({ selectedTags: selectedTags.filter((tag) => tag !== name) }),
         })
       })
+      if (videoFavoriteRatingEnabled) {
+        const formatRating = (value) => {
+          const rating = Number(value)
+          return Number.isInteger(rating) ? String(rating) : rating.toFixed(1)
+        }
+        const range = `${formatRating(videoFavoriteRatingMin)}–${formatRating(videoFavoriteRatingMax)}`
+        items.push({
+          key: 'video-favorite-rating',
+          label: zh(`喜爱度: ${range}`, `Favorite rating: ${range}`),
+          onRemove: () => updateVideoFilters({ videoFavoriteRatingEnabled: false }),
+        })
+      }
       if (randomMode) {
         items.push({
           key: 'video-random',
@@ -465,6 +495,9 @@ export default function useLibraryFilters({
     setSearchInput,
     updateJavFilters,
     updateVideoFilters,
+    videoFavoriteRatingEnabled,
+    videoFavoriteRatingMax,
+    videoFavoriteRatingMin,
   ])
 
   const handleClearActiveFilters = useCallback(() => {
@@ -475,6 +508,9 @@ export default function useLibraryFilters({
         searchTerm: '',
         randomMode: false,
         randomSeed: null,
+        videoFavoriteRatingEnabled: false,
+        videoFavoriteRatingMin: 0.5,
+        videoFavoriteRatingMax: 5,
       })
       return
     }

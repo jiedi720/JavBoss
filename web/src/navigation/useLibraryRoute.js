@@ -184,6 +184,9 @@ export default function useLibraryRoute({ setJavSearchInput, setSearchInput, con
         videoDirectoryId: video.directoryId,
         videoSubdirectory: video.directoryId ? video.subdirectory : '',
         videoFavoriteGroupId: video.favoriteGroupId,
+        videoFavoriteRatingEnabled: video.favoriteRatingEnabled,
+        videoFavoriteRatingMin: video.favoriteRatingMin,
+        videoFavoriteRatingMax: video.favoriteRatingMax,
         page: video.random ? 1 : video.page,
       })
       setSearchInput(video.search)

@@ -29,6 +29,34 @@ func applyVideoFavoriteGroupFilter(query *gorm.DB, filters []VideoFilter) *gorm.
 	)
 }
 
+// applyVideoFavoriteRatingFilter keeps locations whose own video rating falls in
+// the inclusive range. Ratings live on the video row, so filtering through an
+// EXISTS subquery works for both ListVideos (which joins video) and CountVideos
+// (which counts locations without that join).
+func applyVideoFavoriteRatingFilter(query *gorm.DB, filters []VideoFilter) *gorm.DB {
+	if len(filters) == 0 {
+		return query
+	}
+	filter := filters[0]
+	if filter.FavoriteRatingMin == nil && filter.FavoriteRatingMax == nil {
+		return query
+	}
+	conditions := make([]string, 0, 2)
+	args := make([]any, 0, 2)
+	if filter.FavoriteRatingMin != nil {
+		conditions = append(conditions, "rating_video.favorite_rating >= ?")
+		args = append(args, *filter.FavoriteRatingMin)
+	}
+	if filter.FavoriteRatingMax != nil {
+		conditions = append(conditions, "rating_video.favorite_rating <= ?")
+		args = append(args, *filter.FavoriteRatingMax)
+	}
+	return query.Where(
+		"EXISTS (SELECT 1 FROM video rating_video WHERE rating_video.id = video_location.video_id AND "+strings.Join(conditions, " AND ")+")",
+		args...,
+	)
+}
+
 func (store *Store) ListVideos(ctx context.Context, limit, offset int, tagNames []string, search, sort string, seed *int64, directoryIDs []int64, filters ...VideoFilter) ([]models.Video, error) {
 	if limit <= 0 {
 		limit = 100
@@ -93,6 +121,7 @@ func (store *Store) ListVideos(ctx context.Context, limit, offset int, tagNames 
 	query = applyDirectoryFilter(query, "video_location", directoryIDs)
 	query = applyVideoSubdirectoryFilter(query, filters)
 	query = applyVideoFavoriteGroupFilter(query, filters)
+	query = applyVideoFavoriteRatingFilter(query, filters)
 	if useExpr {
 		query = query.Order(clause.OrderBy{Expression: orderExpr})
 	} else {
@@ -199,6 +228,7 @@ func (store *Store) CountVideos(ctx context.Context, tagNames []string, search s
 		base = applyDirectoryFilter(base, "video_location", directoryIDs)
 		base = applyVideoSubdirectoryFilter(base, filters)
 		base = applyVideoFavoriteGroupFilter(base, filters)
+		base = applyVideoFavoriteRatingFilter(base, filters)
 		if like != "" {
 			base = base.Where("video_location.filename LIKE ? COLLATE NOCASE", like)
 		}
@@ -224,6 +254,7 @@ func (store *Store) CountVideos(ctx context.Context, tagNames []string, search s
 	sub = applyDirectoryFilter(sub, "video_location", directoryIDs)
 	sub = applyVideoSubdirectoryFilter(sub, filters)
 	sub = applyVideoFavoriteGroupFilter(sub, filters)
+	sub = applyVideoFavoriteRatingFilter(sub, filters)
 
 	if like != "" {
 		sub = sub.Where("video_location.filename LIKE ? COLLATE NOCASE", like)

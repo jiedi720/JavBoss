@@ -14,9 +14,11 @@ import (
 
 // VideoFilter narrows the active locations returned by ListVideos and CountVideos.
 type VideoFilter struct {
-	HideJav         bool
-	Subdirectory    string
-	FavoriteGroupID int64
+	HideJav           bool
+	Subdirectory      string
+	FavoriteGroupID   int64
+	FavoriteRatingMin *float64
+	FavoriteRatingMax *float64
 }
 
 func applyVideoSubdirectoryFilter(query *gorm.DB, filters []VideoFilter) *gorm.DB {

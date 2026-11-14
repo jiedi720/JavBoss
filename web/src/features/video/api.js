@@ -11,6 +11,9 @@ export async function fetchVideos({
   directoryId = null,
   subdirectory = '',
   favoriteGroupId = null,
+  favoriteRatingEnabled = false,
+  favoriteRatingMin = 0.5,
+  favoriteRatingMax = 5,
   signal,
 } = {}) {
   const params = new URLSearchParams()
@@ -25,6 +28,10 @@ export async function fetchVideos({
   if (sort) params.set('sort', sort)
   if (seed != null) params.set('seed', String(seed))
   if (favoriteGroupId) params.set('favorite_group_id', String(favoriteGroupId))
+  if (favoriteRatingEnabled) {
+    params.set('favorite_rating_min', String(favoriteRatingMin))
+    params.set('favorite_rating_max', String(favoriteRatingMax))
+  }
   params.set('hide_jav', hideJav ? '1' : '0')
   const res = await apiFetch(`/videos?${params.toString()}`, { signal })
   if (!res.ok) throw await apiError(res)
