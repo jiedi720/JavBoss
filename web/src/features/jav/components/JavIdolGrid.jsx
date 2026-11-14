@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded'
 import EditRoundedIcon from '@mui/icons-material/EditRounded'
+import LinkRoundedIcon from '@mui/icons-material/LinkRounded'
 import PhotoCameraRoundedIcon from '@mui/icons-material/PhotoCameraRounded'
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded'
 import StarBorderRoundedIcon from '@mui/icons-material/StarBorderRounded'
@@ -8,6 +9,7 @@ import StarRoundedIcon from '@mui/icons-material/StarRounded'
 import { fetchJavIdolOptions, mergeJavIdols, updateJavIdol } from '@/features/jav/api'
 import { actorGenderOf, actorTerms } from '@/utils/actorTabs'
 import AppModal from '@/shared/ui/AppModal'
+import Tooltip from '@/shared/ui/Tooltip'
 import {
   IDOL_COVER_DEFAULT_CROP_LEFT,
   IDOL_COVER_VISIBLE_RATIO,
@@ -32,6 +34,64 @@ export function getIdolCardLayoutProps() {
     (IDOL_COVER_SOURCE_HEIGHT / (IDOL_COVER_SOURCE_WIDTH * visibleRatio)) * 100
 
   return { bgWidthPercent, coverAspectPercent }
+}
+
+// External lookup links shown on the cover, matching the JAV card's chain
+// button + hover-revealed icon row. JavDB keeps its assisted open flow; the
+// other four sites open directly in a new tab.
+export function buildIdolExternalLinks(item) {
+  const searchName = String(item?.japanese_name || item?.name || '').trim()
+  if (!searchName) return []
+  const encodedName = encodeURIComponent(searchName)
+
+  // AV Wiki addresses actresses by a family-given romanized slug
+  // (kaede-karen for 楓カレン). Stored roman names are given-family
+  // (Karen Kaede), so reverse the words before kebab-casing. Names without a
+  // usable roman spelling fall back to the site's search page.
+  const romanParts = String(item?.roman_name || '')
+    .trim()
+    .split(/[\s-]+/)
+    .filter(Boolean)
+  const avwikiSlug =
+    romanParts.length === 1 || romanParts.length === 2
+      ? romanParts
+          .reverse()
+          .map((part) => part.toLowerCase().replace(/[^a-z0-9]/g, ''))
+          .filter(Boolean)
+          .join('-')
+      : ''
+  const avwikiURL = avwikiSlug
+    ? `https://av-wiki.net/av-actress/${avwikiSlug}/`
+    : `https://av-wiki.net/?s=${encodedName}`
+
+  return [
+    {
+      key: 'javdb',
+      name: 'JavDB',
+      href: `https://javdb.com/search?f=actor&q=${encodedName}`,
+      icon: '/ico/javdb.png',
+      assisted: true,
+    },
+    { key: 'avwiki', name: 'AV Wiki', href: avwikiURL, icon: '/ico/avwiki.png' },
+    {
+      key: 'minnano',
+      name: 'Minnano AV',
+      href: `https://www.minnano-av.com/search_result.php?search_scope=actress&search_word=${encodedName}&search=Go`,
+      icon: '/ico/minnano.png',
+    },
+    {
+      key: 'avbase',
+      name: 'AVBase',
+      href: `https://www.avbase.net/talents/${encodedName}`,
+      icon: '/ico/avbase.png',
+    },
+    {
+      key: 'njavtv',
+      name: 'nJavTV',
+      href: `https://njavtv.com/ja/search/${encodedName}`,
+      icon: '/ico/njavtv.png',
+    },
+  ]
 }
 
 export default function JavIdolGrid({
@@ -171,6 +231,7 @@ export function IdolCard({
   const { primaryName, secondaryName } = getIdolDisplayNames(item, preferChineseName)
   const metaRows = buildMetaRows({ birthDate, height, bwh, bwhDisplay, cup, aliases })
   const canOpenJavDB = Boolean(javDBSearchURL)
+  const idolExternalLinks = buildIdolExternalLinks(item)
   const hasCoverImageSize =
     coverImageSize?.src === cover &&
     Number.isFinite(coverImageSize.width) &&
@@ -254,6 +315,16 @@ export function IdolCard({
     })
   }
 
+  const handleOpenExternalLink = (event, site) => {
+    event.preventDefault()
+    event.stopPropagation()
+    if (site.assisted) {
+      handleOpenJavDB(event)
+      return
+    }
+    window.open(site.href, '_blank', 'noopener,noreferrer')
+  }
+
   const handleOpenFavorites = (event) => {
     event.preventDefault()
     event.stopPropagation()
@@ -328,21 +399,40 @@ export function IdolCard({
             <StarBorderRoundedIcon sx={{ fontSize: 18 }} />
           )}
         </button>
-        <button
-          type="button"
-          className={`card-hover-focus-visible absolute bottom-2 left-2 flex h-7 w-7 items-center justify-center rounded-full text-white opacity-0 shadow-lg shadow-black/60 transition-opacity group-hover:opacity-100 ${
-            canOpenJavDB ? 'bg-black/70 hover:bg-black/85' : 'cursor-not-allowed bg-black/30'
-          }`}
-          title={zh(`在 JavDB 中搜索${terms.zhNoun}`, `Search for ${terms.enSingular} in JavDB`)}
-          aria-label={zh(
-            `在 JavDB 中搜索${terms.zhNoun}`,
-            `Search for ${terms.enSingular} in JavDB`
-          )}
-          disabled={!canOpenJavDB}
-          onClick={handleOpenJavDB}
-        >
-          <img src="/ico/javdb.png" alt="JavDB" className="h-4 w-4" loading="lazy" />
-        </button>
+        {idolExternalLinks.length > 0 ? (
+          <div className="card-hover-focus-visible group/idol-links absolute bottom-2 left-2 z-10 flex max-w-[calc(100%-1rem)] items-center opacity-0 transition-opacity group-hover:opacity-100">
+            <button
+              type="button"
+              aria-label={zh('外部链接', 'External links')}
+              className="flex h-7 w-7 items-center justify-center rounded-full bg-black/70 text-white shadow-lg shadow-black/60 transition hover:bg-black/85"
+              onClick={(event) => {
+                event.preventDefault()
+                event.stopPropagation()
+              }}
+            >
+              <LinkRoundedIcon sx={{ fontSize: 16 }} />
+            </button>
+            <div className="pointer-events-none invisible absolute bottom-full left-0 flex w-max items-center gap-1 pb-2 group-focus-within/idol-links:pointer-events-auto group-focus-within/idol-links:visible group-hover/idol-links:pointer-events-auto group-hover/idol-links:visible">
+              {idolExternalLinks.map((site) => (
+                <Tooltip
+                  key={site.key}
+                  title={zh(`在 ${site.name} 中打开`, `Open in ${site.name}`)}
+                  placement="top"
+                  arrow
+                >
+                  <button
+                    type="button"
+                    className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-black/70 shadow-lg shadow-black/60 transition hover:bg-black/85"
+                    aria-label={zh(`在 ${site.name} 中打开`, `Open in ${site.name}`)}
+                    onClick={(event) => handleOpenExternalLink(event, site)}
+                  >
+                    <img src={site.icon} alt={site.name} className="h-3.5 w-3.5" />
+                  </button>
+                </Tooltip>
+              ))}
+            </div>
+          </div>
+        ) : null}
         <button
           type="button"
           className="card-hover-focus-visible absolute bottom-2 right-10 flex h-7 w-7 items-center justify-center rounded-full bg-black/70 text-white opacity-0 shadow-lg shadow-black/60 transition-opacity hover:bg-black/85 group-hover:opacity-100"
