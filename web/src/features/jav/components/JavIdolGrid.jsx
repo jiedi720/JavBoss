@@ -44,25 +44,11 @@ export function buildIdolExternalLinks(item) {
   if (!searchName) return []
   const encodedName = encodeURIComponent(searchName)
 
-  // AV Wiki addresses actresses by a family-given romanized slug
-  // (kaede-karen for 楓カレン). Stored roman names are given-family
-  // (Karen Kaede), so reverse the words before kebab-casing. Names without a
-  // usable roman spelling fall back to the site's search page.
-  const romanParts = String(item?.roman_name || '')
-    .trim()
-    .split(/[\s-]+/)
-    .filter(Boolean)
-  const avwikiSlug =
-    romanParts.length === 1 || romanParts.length === 2
-      ? romanParts
-          .reverse()
-          .map((part) => part.toLowerCase().replace(/[^a-z0-9]/g, ''))
-          .filter(Boolean)
-          .join('-')
-      : ''
-  const avwikiURL = avwikiSlug
-    ? `https://av-wiki.net/av-actress/${avwikiSlug}/`
-    : `https://av-wiki.net/?s=${encodedName}`
+  // AV Wiki and Minnano AV both open their name-search pages. The %s
+  // placeholder maps to the idol's Japanese name (URL-encoded); the query
+  // strings are kept exactly as specified, including the literal "+Go+".
+  const minnanoURL = `https://www.minnano-av.com/search_result.php?search_scope=actress&search_word=${encodedName}&search=+Go+`
+  const avwikiURL = `https://av-wiki.net/?s=${encodedName}&post_type=product`
 
   return [
     {
@@ -76,7 +62,7 @@ export function buildIdolExternalLinks(item) {
     {
       key: 'minnano',
       name: 'Minnano AV',
-      href: `https://www.minnano-av.com/search_result.php?search_scope=actress&search_word=${encodedName}&search=Go`,
+      href: minnanoURL,
       icon: '/ico/minnano.png',
     },
     {
