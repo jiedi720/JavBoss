@@ -510,12 +510,6 @@ export function JavIdolEditModal({
         <div className="flex-1 overflow-y-auto p-4">
           <div className="grid gap-3 md:grid-cols-2">
             <TextField
-              label={zh('名称', 'Name')}
-              value={form.name}
-              onChange={(value) => setField('name', value)}
-              required
-            />
-            <TextField
               label={zh('日文名', 'Japanese name')}
               value={form.japanese_name}
               onChange={(value) => setField('japanese_name', value)}
