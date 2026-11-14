@@ -27,7 +27,6 @@ import StarBorderRoundedIcon from '@mui/icons-material/StarBorderRounded'
 import StarRoundedIcon from '@mui/icons-material/StarRounded'
 import FavoriteRoundedIcon from '@mui/icons-material/FavoriteRounded'
 import FavoriteBorderRoundedIcon from '@mui/icons-material/FavoriteBorderRounded'
-import RemoveCircleOutlineRoundedIcon from '@mui/icons-material/RemoveCircleOutlineRounded'
 import CheckBoxRoundedIcon from '@mui/icons-material/CheckBoxRounded'
 import CheckBoxOutlineBlankRoundedIcon from '@mui/icons-material/CheckBoxOutlineBlankRounded'
 import { getErrorMessage } from '@/utils/errors'
@@ -343,20 +342,6 @@ export default function VideoCard({
                     }}
                   />
                 </span>
-                {favoriteRatingEditing && favoriteRating > 0 ? (
-                  <button
-                    type="button"
-                    className="ml-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-white transition hover:bg-white/20"
-                    disabled={favoriteRatingSaving || !video?.id}
-                    aria-label={zh('清除喜爱度评分', 'Clear favorite rating')}
-                    onMouseEnter={() => setFavoriteRatingPreview(0)}
-                    onMouseLeave={() => setFavoriteRatingPreview(null)}
-                    onMouseDown={(event) => event.stopPropagation()}
-                    onClick={(event) => handleFavoriteRatingChange(event, 0)}
-                  >
-                    <RemoveCircleOutlineRoundedIcon sx={{ fontSize: 15 }} />
-                  </button>
-                ) : null}
                 {favoriteRating > 0 && !favoriteRatingEditing ? (
                   <span className="ml-1 shrink-0 text-xs font-semibold tabular-nums leading-none text-white">
                     {favoriteRating.toFixed(1)}
