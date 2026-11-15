@@ -1,4 +1,9 @@
-import { isActorListTab } from '@/utils/actorTabs'
+import {
+  isActorListTab,
+  actorTerms,
+  ACTOR_GENDER_FEMALE,
+  ACTOR_GENDER_MALE,
+} from '@/utils/actorTabs'
 import { getSeriesDisplayName, preferChineseSeries } from '@/features/jav/titleTranslation'
 import { useStore } from '@/store'
 import { useShallow } from 'zustand/react/shallow'
@@ -193,11 +198,16 @@ export default function useLibraryFilters({
     if (missingIds.length === 0) return undefined
 
     let cancelled = false
-    resolveJavIdols(missingIds)
-      .then((items) => {
+    // A filter id can come from either the actress or the actor page, so resolve
+    // both genders; the resolved gender also decides the filter chip label.
+    Promise.all([
+      resolveJavIdols(missingIds, ACTOR_GENDER_FEMALE),
+      resolveJavIdols(missingIds, ACTOR_GENDER_MALE),
+    ])
+      .then(([femaleItems, maleItems]) => {
         if (cancelled) return
         const loaded = {}
-        for (const idol of items || []) {
+        for (const idol of [...(femaleItems || []), ...(maleItems || [])]) {
           const id = Number(idol?.id)
           if (Number.isFinite(id) && id > 0) loaded[id] = idol
         }
@@ -392,9 +402,10 @@ export default function useLibraryFilters({
       const name = idol
         ? getIdolDisplayName(idol, configFlag(config?.jav_idol_prefer_chinese_name))
         : `#${id}`
+      const terms = actorTerms(idol?.gender)
       items.push({
         key: `jav-idol-${id}`,
-        label: zh(`女优: ${name}`, `Idol: ${name}`),
+        label: zh(`${terms.zhNoun}: ${name}`, `${terms.enSingularCap}: ${name}`),
         onRemove: () =>
           updateJavFilters({
             javIdolIds: javIdolIds.filter((item) => Number(item) !== Number(id)),
