@@ -1,8 +1,8 @@
 import JavIdolCoverModal from '@/features/jav/components/JavIdolCoverModal'
 
-// Male actors use the exact same cover editor as female idols: a work cover
-// list, a large preview with a draggable crop selection, a start slider and
-// reset/save buttons. The only extra is the upload entry, enabled here.
+// Male actors share the female idol cover editor (work list + upload entry),
+// but show the whole uploaded image instead of cropping a slice out of a wide
+// cover, so the crop-selection UI is turned off for them.
 export default function JavActorCoverModal(props) {
-  return <JavIdolCoverModal allowUpload {...props} />
+  return <JavIdolCoverModal {...props} allowUpload cropEnabled={false} />
 }

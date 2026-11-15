@@ -63,6 +63,7 @@ export default function JavIdolCoverModal({
   item,
   preferChineseName = false,
   allowUpload = false,
+  cropEnabled = true,
   onClose,
   onSaved,
 }) {
@@ -199,7 +200,11 @@ export default function JavIdolCoverModal({
         idolId,
         {
           javId,
-          cropLeft: displayCropLeft,
+          // Without the crop UI, keep the stored crop position untouched so
+          // saving a cover never silently shifts the visible area.
+          cropLeft: cropEnabled
+            ? displayCropLeft
+            : normalizeIdolCoverCropLeft(item?.cover_crop_left ?? IDOL_COVER_DEFAULT_CROP_LEFT),
         },
         actorGender
       )
@@ -367,18 +372,20 @@ export default function JavIdolCoverModal({
                   <div className="truncate text-xs text-slate-500 dark:text-ui-faint">{title}</div>
                 ) : null}
               </div>
-              <div className="text-xs tabular-nums text-slate-500 dark:text-ui-faint">
-                {Math.round(displayCropLeft * 100)}%
-              </div>
+              {cropEnabled ? (
+                <div className="text-xs tabular-nums text-slate-500 dark:text-ui-faint">
+                  {Math.round(displayCropLeft * 100)}%
+                </div>
+              ) : null}
             </div>
 
             <div
               ref={previewRef}
               className="relative w-full select-none overflow-hidden rounded bg-slate-100 dark:bg-ui-muted"
-              onPointerDown={handlePointerDown}
-              onPointerMove={handlePointerMove}
-              onPointerUp={handlePointerUp}
-              onPointerCancel={handlePointerUp}
+              onPointerDown={cropEnabled ? handlePointerDown : undefined}
+              onPointerMove={cropEnabled ? handlePointerMove : undefined}
+              onPointerUp={cropEnabled ? handlePointerUp : undefined}
+              onPointerCancel={cropEnabled ? handlePointerUp : undefined}
             >
               {previewSrc && !imageFailed ? (
                 <img
@@ -400,7 +407,7 @@ export default function JavIdolCoverModal({
                   {zh('封面待下载', 'Cover pending')}
                 </div>
               )}
-              {previewSrc && !imageFailed ? (
+              {cropEnabled && previewSrc && !imageFailed ? (
                 <div
                   className="absolute inset-y-0 border-2 border-white bg-white/10 shadow-[0_0_0_999px_rgba(15,23,42,0.75)]"
                   style={{
@@ -414,20 +421,22 @@ export default function JavIdolCoverModal({
               ) : null}
             </div>
 
-            <label className="mt-4 flex items-center gap-3 text-sm text-slate-700 dark:text-ui-secondary">
-              <span className="w-10 shrink-0">{zh('起点', 'Start')}</span>
-              <input
-                type="range"
-                min="0"
-                max={maxCropLeft}
-                step="0.001"
-                value={displayCropLeft}
-                onChange={(event) =>
-                  setCropLeft(normalizeDynamicCropLeft(event.target.value, maxCropLeft))
-                }
-                className="min-w-0 flex-1 accent-slate-900 dark:accent-blue-400"
-              />
-            </label>
+            {cropEnabled ? (
+              <label className="mt-4 flex items-center gap-3 text-sm text-slate-700 dark:text-ui-secondary">
+                <span className="w-10 shrink-0">{zh('起点', 'Start')}</span>
+                <input
+                  type="range"
+                  min="0"
+                  max={maxCropLeft}
+                  step="0.001"
+                  value={displayCropLeft}
+                  onChange={(event) =>
+                    setCropLeft(normalizeDynamicCropLeft(event.target.value, maxCropLeft))
+                  }
+                  className="min-w-0 flex-1 accent-slate-900 dark:accent-blue-400"
+                />
+              </label>
+            ) : null}
 
             {error ? (
               <div className="mt-3 text-sm text-rose-600 dark:text-rose-300">{error}</div>
@@ -442,7 +451,7 @@ export default function JavIdolCoverModal({
           className="inline-flex items-center gap-1.5 rounded border border-slate-300 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50 dark:border-ui-border dark:text-ui-secondary dark:hover:bg-ui-hover"
           onClick={() => {
             setSelectedJavId(0)
-            setCropLeft(IDOL_COVER_DEFAULT_CROP_LEFT)
+            if (cropEnabled) setCropLeft(IDOL_COVER_DEFAULT_CROP_LEFT)
             setImageFailed(false)
           }}
         >
