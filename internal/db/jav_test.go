@@ -2918,7 +2918,9 @@ func TestUpdateJavIdolCoverSelection(t *testing.T) {
 		t.Fatalf("expected invalid cover jav error")
 	}
 
-	item, err = deps.store.UpdateJavIdolCoverSelection(ctx, idol.ID, 0, 0, nil)
+	// Resetting to the automatic cover keeps a custom crop position: the crop
+	// applies to any cover source, including an uploaded one.
+	item, err = deps.store.UpdateJavIdolCoverSelection(ctx, idol.ID, 0, 0.31, nil)
 	if err != nil {
 		t.Fatalf("reset cover selection: %v", err)
 	}
@@ -2928,8 +2930,8 @@ func TestUpdateJavIdolCoverSelection(t *testing.T) {
 	if item.CoverCode != soloJav.Code {
 		t.Fatalf("cover code after reset = %q, want %q", item.CoverCode, soloJav.Code)
 	}
-	if item.CoverCropLeft != 0.53 {
-		t.Fatalf("crop left after reset = %v, want 0.53", item.CoverCropLeft)
+	if item.CoverCropLeft != 0.31 {
+		t.Fatalf("crop left after reset = %v, want 0.31", item.CoverCropLeft)
 	}
 }
 

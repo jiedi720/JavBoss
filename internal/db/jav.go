@@ -2821,7 +2821,9 @@ func (store *Store) UpdateJavIdolCoverSelection(ctx context.Context, idolID, jav
 		}
 		if javID <= 0 {
 			updates["cover_jav_id"] = nil
-			updates["cover_crop_left"] = normalizeCoverCropLeft(0.53)
+			// Keep the requested crop position when returning to the automatic
+			// cover. The crop applies to whatever cover is displayed, including a
+			// manually uploaded one, so it must be editable on its own.
 			if err := tx.Model(&models.JavIdol{}).Where("id = ?", idolID).Updates(updates).Error; err != nil {
 				return fmt.Errorf("reset jav idol cover selection: %w", err)
 			}

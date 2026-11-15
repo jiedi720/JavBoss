@@ -122,8 +122,8 @@ func TestJavIdolEditingWithAnyVisibleWork(t *testing.T) {
 					t.Fatalf("cover was not persisted: got %#v, want %#v", loaded, updated)
 				}
 			}
-			updated = request(http.MethodPut, path+"/cover", `{"jav_id":0,"crop_left":0}`, http.StatusOK)
-			if updated.CoverJavID != nil || updated.CoverCropLeft != 0.53 {
+			updated = request(http.MethodPut, path+"/cover", `{"jav_id":0,"crop_left":0.31}`, http.StatusOK)
+			if updated.CoverJavID != nil || updated.CoverCropLeft != 0.31 {
 				t.Fatalf("unexpected reset cover: %#v", updated)
 			}
 			if loaded := request(http.MethodGet, path, "", http.StatusOK); !reflect.DeepEqual(loaded, updated) {
