@@ -313,7 +313,7 @@ func TestListJavCodesForDirectoryOnlyReturnsVisibleDistinctCodes(t *testing.T) {
 	}
 }
 
-func TestListJavIdolsOnlyIncludesIdolsWithVisibleSoloWorks(t *testing.T) {
+func TestListJavIdolsIncludesIdolsWithAnyVisibleWork(t *testing.T) {
 	deps := newTestDependencies()
 	db := openTestDB(deps, t)
 	ctx := context.Background()
@@ -397,20 +397,30 @@ func TestListJavIdolsOnlyIncludesIdolsWithVisibleSoloWorks(t *testing.T) {
 		t.Fatalf("ListJavIdols: %v", err)
 	}
 
-	if total != 1 {
-		t.Fatalf("unexpected total: got %d want 1", total)
+	if total != 2 {
+		t.Fatalf("unexpected total: got %d want 2", total)
 	}
-	if len(items) != 1 {
-		t.Fatalf("unexpected item count: got %d want 1", len(items))
+	if len(items) != 2 {
+		t.Fatalf("unexpected item count: got %d want 2", len(items))
 	}
-	if items[0].ID != soloIdol.ID {
-		t.Fatalf("unexpected idol id: got %d want %d", items[0].ID, soloIdol.ID)
+	foundSolo, foundGroupOnly := false, false
+	for _, item := range items {
+		switch item.ID {
+		case soloIdol.ID:
+			foundSolo = true
+			if item.WorkCount != 2 {
+				t.Errorf("solo idol work count: got %d want 2", item.WorkCount)
+			}
+			if item.CoverCode != soloJav.Code {
+				t.Errorf("solo idol cover: got %q want %q", item.CoverCode, soloJav.Code)
+			}
+		case groupOnlyIdol.ID:
+			// A co-starred performance is enough to be listed now.
+			foundGroupOnly = true
+		}
 	}
-	if items[0].WorkCount != 2 {
-		t.Fatalf("unexpected work count: got %d want 2", items[0].WorkCount)
-	}
-	if items[0].CoverCode != soloJav.Code {
-		t.Fatalf("unexpected cover code: got %q want %q", items[0].CoverCode, soloJav.Code)
+	if !foundSolo || !foundGroupOnly {
+		t.Fatalf("expected both idols, got solo=%v groupOnly=%v", foundSolo, foundGroupOnly)
 	}
 }
 

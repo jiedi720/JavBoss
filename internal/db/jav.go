@@ -2178,27 +2178,27 @@ func applyJavIdolSearch(q *gorm.DB, search string) *gorm.DB {
 	)
 }
 
-// buildVisibleSoloIdolCoverQuery finds a default cover for actors of the given
-// gender. The "solo" count only considers actors of that same gender so a work
-// with one actress and one male actor still counts as a solo work for both.
-// An empty gender keeps the legacy behaviour of counting every linked actor,
-// which is what shared favourite-group counts expect.
-func (store *Store) buildVisibleSoloIdolCoverQuery(ctx context.Context, directoryIDs []int64, gender string) *gorm.DB {
-	soloJavs := store.conn.WithContext(ctx).
+// buildVisibleIdolCoverQuery finds a default cover from any visible work the
+// actor appears in. Co-starred/group performances count too, so an actor is
+// listed as long as they have at least one visible performance. The gender
+// filter keeps male and female actors separate when resolving covers; an empty
+// gender accepts every linked actor, as shared favourite-group counts expect.
+func (store *Store) buildVisibleIdolCoverQuery(ctx context.Context, directoryIDs []int64, gender string) *gorm.DB {
+	visibleJavs := store.conn.WithContext(ctx).
 		Table("jav_idol_map jim_count").
 		Select("jim_count.jav_id")
 	if gender != "" {
-		soloJavs = soloJavs.
+		visibleJavs = visibleJavs.
 			Joins("JOIN jav_idol ji_count ON ji_count.id = jim_count.jav_idol_id AND ji_count.gender = ?", models.NormalizeActorGender(gender))
 	}
-	soloJavs = soloJavs.
-		Group("jim_count.jav_id").
-		Having("COUNT(DISTINCT jim_count.jav_idol_id) = 1")
+	// Any visible performance qualifies; previously only solo works did.
+	visibleJavs = visibleJavs.
+		Group("jim_count.jav_id")
 
 	query := store.conn.WithContext(ctx).
 		Table("jav_idol_map jim_solo").
 		Select("jim_solo.jav_idol_id, MIN(j_solo.code) AS cover_code").
-		Joins("JOIN (?) solo_jav ON solo_jav.jav_id = jim_solo.jav_id", soloJavs).
+		Joins("JOIN (?) solo_jav ON solo_jav.jav_id = jim_solo.jav_id", visibleJavs).
 		Joins("JOIN jav j_solo ON j_solo.id = jim_solo.jav_id").
 		Joins("JOIN video_location vl_solo ON vl_solo.jav_id = jim_solo.jav_id").
 		Joins("JOIN directory d_solo ON d_solo.id = vl_solo.directory_id").
@@ -2240,7 +2240,7 @@ func (store *Store) GetJavIdolSummary(ctx context.Context, idolID int64, directo
 		Table("jav_idol ji").
 		Select("ji.id, ji.gender, ji.name, ji.roman_name, ji.japanese_name, ji.chinese_name, ji.height_cm, ji.birth_date, ji.bust, ji.waist, ji.hips, ji.cup, COALESCE(idol_work_counts.work_count, 0) AS work_count, ji.cover_jav_id, ji.cover_image, COALESCE(NULLIF(cover_jav.code, ''), solo_idols.cover_code) AS cover_code, COALESCE(ji.cover_crop_left, 0.53) AS cover_crop_left, COALESCE(favorite_counts.favorite_count, 0) AS favorite_count").
 		Joins("LEFT JOIN (?) idol_work_counts ON idol_work_counts.jav_idol_id = ji.id", store.buildVisibleIdolWorkCountQuery(ctx, directoryIDs)).
-		Joins("LEFT JOIN (?) solo_idols ON solo_idols.jav_idol_id = ji.id", store.buildVisibleSoloIdolCoverQuery(ctx, directoryIDs, actorGender)).
+		Joins("LEFT JOIN (?) solo_idols ON solo_idols.jav_idol_id = ji.id", store.buildVisibleIdolCoverQuery(ctx, directoryIDs, actorGender)).
 		Joins("LEFT JOIN jav cover_jav ON cover_jav.id = ji.cover_jav_id").
 		Joins("LEFT JOIN (?) favorite_counts ON favorite_counts.jav_idol_id = ji.id", store.buildIdolFavoriteCountQuery(ctx)).
 		Where("ji.id = ?", idolID).
@@ -2352,7 +2352,7 @@ func (store *Store) ListJavIdols(ctx context.Context, search, sort string, limit
 		return store.listMaleJavIdols(ctx, search, sort, limit, offset, directoryIDs, favoriteGroupID, filters)
 	}
 	filterDate := time.Now().UTC()
-	soloIdols := store.buildVisibleSoloIdolCoverQuery(ctx, directoryIDs, filters.Gender)
+	soloIdols := store.buildVisibleIdolCoverQuery(ctx, directoryIDs, filters.Gender)
 
 	countBase := store.conn.WithContext(ctx).
 		Table("jav_idol ji").
@@ -2476,7 +2476,7 @@ func (store *Store) listMaleJavIdols(ctx context.Context, search, sort string, l
 	base := store.conn.WithContext(ctx).
 		Table("jav_idol ji").
 		Joins("LEFT JOIN (?) work_counts ON work_counts.jav_idol_id = ji.id", store.buildVisibleIdolWorkCountQuery(ctx, directoryIDs)).
-		Joins("LEFT JOIN (?) solo_idols ON solo_idols.jav_idol_id = ji.id", store.buildVisibleSoloIdolCoverQuery(ctx, directoryIDs, models.ActorGenderMale)).
+		Joins("LEFT JOIN (?) solo_idols ON solo_idols.jav_idol_id = ji.id", store.buildVisibleIdolCoverQuery(ctx, directoryIDs, models.ActorGenderMale)).
 		Joins("LEFT JOIN (?) favorite_counts ON favorite_counts.jav_idol_id = ji.id", store.buildIdolFavoriteCountQuery(ctx)).
 		Joins("LEFT JOIN jav cover_jav ON cover_jav.id = ji.cover_jav_id").
 		Where("ji.gender = ?", models.ActorGenderMale)
@@ -2927,7 +2927,7 @@ func (store *Store) FindIdolSoloCode(ctx context.Context, idolID int64) (string,
 // ListIdolsMissingProfile returns idols that have no profile fields populated.
 func (store *Store) ListIdolsMissingProfile(ctx context.Context) ([]models.JavIdol, error) {
 	var idols []models.JavIdol
-	soloIdols := store.buildVisibleSoloIdolCoverQuery(ctx, nil, models.ActorGenderFemale)
+	soloIdols := store.buildVisibleIdolCoverQuery(ctx, nil, models.ActorGenderFemale)
 	if err := store.conn.WithContext(ctx).
 		Joins("JOIN (?) solo_idols ON solo_idols.jav_idol_id = jav_idol.id", soloIdols).
 		Where(`

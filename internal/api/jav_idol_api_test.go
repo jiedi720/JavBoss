@@ -17,7 +17,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func TestJavIdolEditingWithoutSoloWorks(t *testing.T) {
+func TestJavIdolEditingWithAnyVisibleWork(t *testing.T) {
 	deps := newTestDependencies()
 	for _, workType := range []string{"group", "none", "solo"} {
 		t.Run(workType, func(t *testing.T) {
@@ -63,10 +63,11 @@ func TestJavIdolEditingWithoutSoloWorks(t *testing.T) {
 					VideoID: video.ID, DirectoryID: directory.ID,
 					RelativePath: "edit.mp4", Filename: "edit.mp4", JavID: &work.ID,
 				})
-				wantWorkCount = 1
-				if workType == "solo" {
-					wantDefaultCover = work.Code
-				}
+			wantWorkCount = 1
+			if workType != "none" {
+				// Any visible performance supplies a default cover now.
+				wantDefaultCover = work.Code
+			}
 			}
 
 			gin.SetMode(gin.TestMode)
