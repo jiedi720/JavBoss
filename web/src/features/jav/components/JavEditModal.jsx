@@ -67,6 +67,19 @@ function ActorPicker({
   onSelect,
   preferChineseName,
 }) {
+  const panelRef = useRef(null)
+  useEffect(() => {
+    if (!pickerOpen) return undefined
+    const frame = requestAnimationFrame(() => {
+      // The picker expands below its row, which can fall outside the dialog's
+      // scroll area and end up behind the fixed footer. Bring it into view and
+      // focus the search field so Create / Done are usable right away.
+      panelRef.current?.scrollIntoView({ block: 'nearest' })
+      const input = panelRef.current?.querySelector('input')
+      if (input && !input.disabled) input.focus({ preventScroll: true })
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [pickerOpen, optionsLoading])
   return (
     <div ref={pickerRef}>
       <div className="text-[13px] font-semibold text-black dark:text-ui-text">{title}</div>
@@ -92,7 +105,10 @@ function ActorPicker({
         </button>
       </div>
       {pickerOpen ? (
-        <div className="mt-2 rounded-md border border-gray-200 p-2 dark:border-ui-border">
+        <div
+          ref={panelRef}
+          className="mt-2 rounded-md border border-gray-200 p-2 dark:border-ui-border"
+        >
           <div className="mb-2 flex items-center gap-2">
             <input
               type="text"
@@ -225,6 +241,7 @@ function JavEditForm({
   const [studioDropdownOpen, setStudioDropdownOpen] = useState(false)
   const [seriesDropdownOpen, setSeriesDropdownOpen] = useState(false)
   const [optionsLoading, setOptionsLoading] = useState(false)
+  const [actorOptionsLoading, setActorOptionsLoading] = useState(true)
   const [tagOptionsLoading, setTagOptionsLoading] = useState(false)
   const [optionsError, setOptionsError] = useState('')
   const [releaseDate, setReleaseDate] = useState('')
@@ -485,29 +502,43 @@ function JavEditForm({
   useEffect(() => {
     let cancelled = false
     setOptionsLoading(true)
+    setActorOptionsLoading(true)
     setOptionsError('')
+    const reportError = (err) => {
+      if (!cancelled) setOptionsError(getErrorMessage(err))
+    }
+    // Male actor options are the only thing the actor picker needs. Studio and
+    // series lists are much slower, so keep them out of the actor picker's way.
+    fetchAllJavEditOptions((options) =>
+      fetchJavIdolOptions({ ...options, gender: ACTOR_GENDER_MALE })
+    )
+      .then((actors) => {
+        if (!cancelled) setActorOptions(actors)
+      })
+      .catch((err) => {
+        reportError(err)
+        if (!cancelled) setActorOptions([])
+      })
+      .finally(() => {
+        if (!cancelled) setActorOptionsLoading(false)
+      })
     Promise.all([
       fetchAllJavEditOptions(fetchJavStudios),
       fetchAllJavEditOptions(fetchJavSeries),
       fetchAllJavEditOptions(fetchJavIdolOptions),
-      fetchAllJavEditOptions((options) =>
-        fetchJavIdolOptions({ ...options, gender: ACTOR_GENDER_MALE })
-      ),
     ])
-      .then(([studios, series, idols, actors]) => {
+      .then(([studios, series, idols]) => {
         if (cancelled) return
         setStudioOptions(studios)
         setSeriesOptions(series)
         setIdolOptions(idols)
-        setActorOptions(actors)
       })
       .catch((err) => {
+        reportError(err)
         if (cancelled) return
-        setOptionsError(getErrorMessage(err))
         setStudioOptions([])
         setSeriesOptions([])
         setIdolOptions([])
-        setActorOptions([])
       })
       .finally(() => {
         if (!cancelled) setOptionsLoading(false)
@@ -609,7 +640,7 @@ function JavEditForm({
 
   const addActor = async () => {
     const name = actorSearch.trim()
-    if (!name || creatingActor || optionsLoading) return
+    if (!name || creatingActor || actorOptionsLoading) return
     if (matchingActorOption?.id) {
       toggleActor(matchingActorOption.id, true)
       setActorSearch('')
@@ -1033,7 +1064,7 @@ function JavEditForm({
           availableOptions={availableActorOptions}
           saving={saving}
           creating={creatingActor}
-          optionsLoading={optionsLoading}
+          optionsLoading={actorOptionsLoading}
           pickerOpen={actorPickerOpen}
           onTogglePicker={toggleActorPicker}
           onClosePicker={closeActorPicker}
