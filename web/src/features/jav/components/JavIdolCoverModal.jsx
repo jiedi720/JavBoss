@@ -4,7 +4,13 @@ import CloseOutlinedIcon from '@mui/icons-material/CloseOutlined'
 import ImageRoundedIcon from '@mui/icons-material/ImageRounded'
 import RestartAltRoundedIcon from '@mui/icons-material/RestartAltRounded'
 import SaveRoundedIcon from '@mui/icons-material/SaveRounded'
-import { fetchJavIdolCoverOptions, updateJavIdolCover } from '@/features/jav/api'
+import UploadFileRoundedIcon from '@mui/icons-material/UploadFileRounded'
+import {
+  fetchJavIdolCoverOptions,
+  updateJavIdolCover,
+  updateJavIdolCoverURL,
+  uploadJavIdolCover,
+} from '@/features/jav/api'
 import AppModal from '@/shared/ui/AppModal'
 import { getJavDisplayTitle } from '@/utils/jav'
 import { useStore } from '@/store'
@@ -56,11 +62,15 @@ export default function JavIdolCoverModal({
   gender,
   item,
   preferChineseName = false,
+  allowUpload = false,
   onClose,
   onSaved,
 }) {
   const previewRef = useRef(null)
+  const fileRef = useRef(null)
   const [options, setOptions] = useState([])
+  const [file, setFile] = useState(null)
+  const [coverUrl, setCoverUrl] = useState('')
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -83,6 +93,8 @@ export default function JavIdolCoverModal({
     setOptions([])
     setSelectedJavId(Number(item?.cover_jav_id) || 0)
     setCropLeft(normalizeIdolCoverCropLeft(item?.cover_crop_left ?? IDOL_COVER_DEFAULT_CROP_LEFT))
+    setFile(null)
+    setCoverUrl('')
     fetchJavIdolCoverOptions(idolId, actorGender)
       .then((items) => {
         if (cancelled) return
@@ -111,6 +123,8 @@ export default function JavIdolCoverModal({
       setDragging(false)
       setImageFailed(false)
       setImageSize(null)
+      setFile(null)
+      setCoverUrl('')
     }
   }, [open])
 
@@ -119,7 +133,20 @@ export default function JavIdolCoverModal({
     [options, selectedJavId]
   )
   const previewCode = String(selectedOption?.code || itemCoverCode).trim()
-  const coverSrc = previewCode ? `/jav/${encodeURIComponent(previewCode)}/cover` : ''
+  // A picked local file or a pasted URL is previewed right away, so the crop
+  // selection is made on the very image that will become the cover.
+  const localPreview = useMemo(() => (file ? URL.createObjectURL(file) : ''), [file])
+  useEffect(
+    () => () => {
+      if (localPreview) URL.revokeObjectURL(localPreview)
+    },
+    [localPreview]
+  )
+  const linkedUrl = String(coverUrl || '').trim()
+  const previewSrc =
+    localPreview ||
+    linkedUrl ||
+    (previewCode ? `/jav/${encodeURIComponent(previewCode)}/cover` : '')
   const translateTitle = useStore((state) => preferChineseTitle(state.config))
   const title = selectedOption ? getJavDisplayTitle(selectedOption, translateTitle) : ''
   const visibleRatio = getCoverVisibleRatio(imageSize)
@@ -128,7 +155,7 @@ export default function JavIdolCoverModal({
 
   useEffect(() => {
     setImageSize(null)
-  }, [coverSrc])
+  }, [previewSrc])
 
   const setCropFromClientX = (clientX) => {
     const rect = previewRef.current?.getBoundingClientRect()
@@ -138,7 +165,7 @@ export default function JavIdolCoverModal({
   }
 
   const handlePointerDown = (event) => {
-    if (!previewCode) return
+    if (!previewSrc) return
     event.preventDefault()
     event.currentTarget.setPointerCapture?.(event.pointerId)
     setDragging(true)
@@ -155,14 +182,23 @@ export default function JavIdolCoverModal({
   }
 
   const handleSave = async () => {
-    if (!Number.isFinite(idolId) || idolId <= 0 || saving) return
+    if (!Number.isFinite(idolId) || idolId <= 0 || saving || loading) return
     setSaving(true)
     setError('')
     try {
+      const url = String(coverUrl || '').trim()
+      if (allowUpload && file) {
+        await uploadJavIdolCover(idolId, file, actorGender)
+      } else if (allowUpload && url) {
+        await updateJavIdolCoverURL(idolId, url, actorGender)
+      }
+      // An uploaded / linked image becomes the cover itself, so it must not
+      // keep a previously selected work cover id.
+      const javId = allowUpload && (file || url) ? 0 : Number(selectedJavId) || 0
       const updated = await updateJavIdolCover(
         idolId,
         {
-          javId: Number(selectedJavId) || 0,
+          javId,
           cropLeft: displayCropLeft,
         },
         actorGender
@@ -205,6 +241,57 @@ export default function JavIdolCoverModal({
 
       <div className="grid min-h-0 flex-1 gap-0 overflow-hidden md:grid-cols-[18rem_minmax(0,1fr)]">
         <div className="min-h-[12rem] overflow-y-auto border-b border-slate-200 dark:border-ui-border md:border-b-0 md:border-r">
+          {allowUpload ? (
+            <div className="border-b border-slate-200 px-3 py-3 dark:border-ui-border">
+              <div className="text-[13px] font-semibold text-slate-900 dark:text-ui-text">
+                {zh('上传图片', 'Upload image')}
+              </div>
+              <input
+                ref={fileRef}
+                type="file"
+                accept="image/jpeg,image/png"
+                className="hidden"
+                onChange={(event) => {
+                  setFile(event.target.files?.[0] || null)
+                  setError('')
+                }}
+                disabled={saving}
+              />
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-1.5 rounded border border-slate-300 px-2.5 py-1.5 text-xs text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-ui-border dark:text-ui-secondary dark:hover:bg-ui-hover"
+                  onClick={() => fileRef.current?.click()}
+                  disabled={saving}
+                >
+                  <UploadFileRoundedIcon sx={{ fontSize: 15 }} />
+                  {zh('选择本地图片', 'Choose image')}
+                </button>
+                <span className="min-w-0 truncate text-xs text-slate-500 dark:text-ui-faint">
+                  {file ? file.name : zh('JPG / PNG，小于 12MB', 'JPG / PNG, under 12MB')}
+                </span>
+              </div>
+              <input
+                type="url"
+                value={coverUrl}
+                onChange={(event) => {
+                  setCoverUrl(event.target.value)
+                  if (error) setError('')
+                }}
+                placeholder={zh('或输入图片链接 https://…', 'Or paste an image URL https://…')}
+                className="form-field mt-2 w-full rounded-md border border-gray-300 px-2 py-1.5 text-xs text-gray-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                disabled={saving}
+              />
+              {file && String(coverUrl || '').trim() ? (
+                <div className="mt-1.5 text-xs text-amber-600 dark:text-amber-300">
+                  {zh(
+                    '同时选择了图片和链接，保存时优先使用上传的图片。',
+                    'Both an image and a URL were provided; the uploaded image takes priority.'
+                  )}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
           <button
             type="button"
             className={`flex w-full items-center gap-2 border-b px-3 py-2 text-left text-sm ${
@@ -293,10 +380,10 @@ export default function JavIdolCoverModal({
               onPointerUp={handlePointerUp}
               onPointerCancel={handlePointerUp}
             >
-              {coverSrc && !imageFailed ? (
+              {previewSrc && !imageFailed ? (
                 <img
-                  src={coverSrc}
-                  alt={previewCode}
+                  src={previewSrc}
+                  alt={previewCode || zh('封面预览', 'Cover preview')}
                   className="block w-full"
                   draggable={false}
                   onLoad={(event) => {
@@ -313,7 +400,7 @@ export default function JavIdolCoverModal({
                   {zh('封面待下载', 'Cover pending')}
                 </div>
               )}
-              {previewCode && !imageFailed ? (
+              {previewSrc && !imageFailed ? (
                 <div
                   className="absolute inset-y-0 border-2 border-white bg-white/10 shadow-[0_0_0_999px_rgba(15,23,42,0.75)]"
                   style={{
