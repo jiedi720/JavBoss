@@ -2,8 +2,8 @@ import JavIdolCoverModal from '@/features/jav/components/JavIdolCoverModal'
 import JavActorCoverModal from '@/features/jav/components/JavActorCoverModal'
 import { actorGenderOf, ACTOR_GENDER_MALE } from '@/utils/actorTabs'
 
-// Male actors reuse the female cover editor with an upload entry, but without
-// the crop-selection UI (their uploaded image is shown whole).
+// Male actors reuse the female cover editor with an upload entry and the same
+// crop UI, but their cover never comes from a work-cover list.
 export default function JavIdolCoverEditor({ gender, item, ...rest }) {
   const resolved = actorGenderOf(gender, item)
   if (resolved === ACTOR_GENDER_MALE) {
