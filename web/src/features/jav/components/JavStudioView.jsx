@@ -356,6 +356,7 @@ export function StudioCard({
         <div className="relative aspect-[800/538] w-full overflow-hidden bg-gray-100 dark:bg-ui-muted">
           {cover ? (
             <img
+              data-jb-cover=""
               src={cover}
               alt={name}
               className="h-full w-full object-cover transition duration-200 group-hover:scale-[1.03]"

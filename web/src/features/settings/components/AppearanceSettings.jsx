@@ -1,10 +1,37 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { Switch } from '@mui/material'
 import { useAppTheme } from '@/app/theme/AppThemeProvider'
+import {
+  applyCoverBlur,
+  COVER_BLUR_STORAGE_KEY,
+  readCoverBlur,
+  setCoverBlur,
+} from '@/app/theme/coverBlur'
 import { zh } from '@/utils/i18n'
 
 export default function AppearanceSettings() {
   const { preference, setPreference } = useAppTheme()
   const [storageError, setStorageError] = useState(false)
+  const [coverBlur, setCoverBlurEnabled] = useState(readCoverBlur)
+
+  useEffect(() => {
+    applyCoverBlur(coverBlur)
+  }, [coverBlur])
+
+  useEffect(() => {
+    const onStorage = (event) => {
+      if (event.key === COVER_BLUR_STORAGE_KEY || event.key === null) {
+        setCoverBlurEnabled(readCoverBlur())
+      }
+    }
+    window.addEventListener('storage', onStorage)
+    return () => window.removeEventListener('storage', onStorage)
+  }, [])
+
+  const handleCoverBlurChange = (enabled) => {
+    setCoverBlurEnabled(enabled)
+    if (!setCoverBlur(enabled)) setStorageError(true)
+  }
 
   return (
     <section className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-ui-border dark:bg-ui-surface">
@@ -29,11 +56,30 @@ export default function AppearanceSettings() {
           <option value="system">{zh('跟随系统', 'System')}</option>
         </select>
       </div>
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-zinc-100 pt-4 dark:border-ui-border">
+        <div className="min-w-0">
+          <span className="text-sm font-semibold text-zinc-800 dark:text-ui-text">
+            {zh('封面模糊', 'Blur covers')}
+          </span>
+          <p className="mt-1 text-xs leading-5 text-zinc-500 dark:text-ui-secondary">
+            {zh(
+              '开启后所有封面以毛玻璃效果模糊显示',
+              'Show every cover behind a frosted-glass blur'
+            )}
+          </p>
+        </div>
+        <Switch
+          checked={coverBlur}
+          onChange={(event) => handleCoverBlurChange(event.target.checked)}
+          inputProps={{ 'aria-label': zh('封面模糊', 'Blur covers') }}
+          size="small"
+        />
+      </div>
       {storageError && (
         <p role="alert" className="mt-3 text-xs text-amber-700 dark:text-amber-300">
           {zh(
-            '浏览器无法保存主题，本次选择仅在当前页面生效。',
-            'The browser could not save your theme. This choice only applies to the current page.'
+            '浏览器无法保存设置，本次选择仅在当前页面生效。',
+            'The browser could not save your settings. This choice only applies to the current page.'
           )}
         </p>
       )}

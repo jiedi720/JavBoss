@@ -97,7 +97,7 @@ export default function JavActorCoverModal({
           </div>
           <div className="overflow-hidden rounded bg-slate-100 dark:bg-ui-muted">
             {coverSrc ? (
-              <img src={coverSrc} alt={coverCode} className="block w-full" />
+              <img data-jb-cover="" src={coverSrc} alt={coverCode} className="block w-full" />
             ) : (
               <div className="flex aspect-[2/3] items-center justify-center text-slate-400">
                 <ImageRoundedIcon sx={{ fontSize: 40 }} />

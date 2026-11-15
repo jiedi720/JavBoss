@@ -16,6 +16,7 @@ import { normalizeCoverCropPosition } from '@/features/jav/coverCrop'
 export function JavCoverImage({ src, alt, portrait = false, cropPosition }) {
   return (
     <img
+      data-jb-cover=""
       src={src}
       alt={alt}
       className={`h-full w-full ${portrait ? 'object-cover object-right' : 'object-contain object-top'}`}

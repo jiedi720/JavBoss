@@ -41,6 +41,7 @@ export function CoverPreviewModal({ preview, onClose }) {
         ×
       </button>
       <img
+        data-jb-cover="preview"
         src={preview.src}
         alt={preview.alt || zh('JAV 封面', 'JAV cover')}
         className="max-h-[92vh] max-w-[94vw] transform-gpu cursor-zoom-in object-contain shadow-2xl"

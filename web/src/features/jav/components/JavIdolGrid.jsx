@@ -349,6 +349,7 @@ export function IdolCard({
       >
         {cover && coverReady ? (
           <img
+            data-jb-cover="crop"
             src={cover}
             alt={primaryName}
             className="absolute top-0 h-full max-w-none select-none"

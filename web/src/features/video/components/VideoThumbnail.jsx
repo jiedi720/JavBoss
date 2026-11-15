@@ -34,6 +34,7 @@ function ThumbnailImage({ src, onLoad, onError, style, alt, ...props }) {
   return (
     <img
       {...props}
+      data-jb-cover=""
       src={retrySrc}
       alt={alt}
       style={{ ...style, ...(failed ? { visibility: 'hidden' } : {}) }}

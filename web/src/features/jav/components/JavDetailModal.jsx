@@ -191,6 +191,7 @@ function JavSampleImageGrid({ images, itemId }) {
       <div className="flex flex-wrap gap-2">
         {displayImages.map((image, index) => (
           <img
+            data-jb-cover=""
             key={`${image.detail_url}-${index}`}
             src={image.thumbnail_url}
             alt={zh(`样品图像 ${index + 1}`, `Sample image ${index + 1}`)}
@@ -737,6 +738,7 @@ export default function JavDetailModal({
             <div className="group relative aspect-[800/538] w-full overflow-hidden rounded-lg border border-gray-200 bg-gray-50 shadow-sm dark:border-ui-border dark:bg-ui-canvas">
               {cover ? (
                 <img
+                  data-jb-cover=""
                   src={cover}
                   alt={code || zh('JAV 封面', 'JAV cover')}
                   className="h-full w-full object-contain object-top"

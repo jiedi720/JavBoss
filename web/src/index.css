@@ -1398,3 +1398,9 @@ body.has-page-scroll .sticky-pagination {
     max-width: min(100%, 11rem);
   }
 }
+
+/* 封面模糊：开启后所有展示型封面以毛玻璃效果柔和虚化 */
+html.jb-cover-blur [data-jb-cover] {
+  filter: blur(14px) saturate(1.15) brightness(1.06);
+  transition: filter 180ms ease;
+}

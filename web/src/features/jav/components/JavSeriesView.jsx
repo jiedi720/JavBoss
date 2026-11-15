@@ -246,6 +246,7 @@ export function SeriesCard({
           </button>
           {cover ? (
             <img
+              data-jb-cover=""
               src={cover}
               alt={name}
               className="h-full w-full object-cover transition duration-200 group-hover:scale-[1.03]"
