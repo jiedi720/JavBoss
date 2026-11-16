@@ -554,41 +554,43 @@ export function JavIdolEditModal({
       const data = await fetchJavActressProfile(name)
       const profile = data?.profile || {}
       const source = data?.source || ''
-      const filled = []
-      setForm((current) => {
-        const next = { ...current }
-        const fill = (key, value, label, numeric = false) => {
-          if (next[key] !== '' && next[key] != null) return
-          if (numeric) {
-            const n = Number(value)
-            if (!Number.isFinite(n) || n <= 0) return
-            next[key] = String(n)
-          } else {
-            const text = String(value || '').trim()
-            if (!text) return
-            next[key] = text
-          }
-          filled.push(label)
+      const next = { ...form }
+      const changes = []
+      // 识别结果用来校准已有值：和当前值不一致就更新，方便用户核对后保存
+      const apply = (key, value, label, numeric = false) => {
+        let incoming
+        if (numeric) {
+          const n = Number(value)
+          if (!Number.isFinite(n) || n <= 0) return
+          incoming = String(n)
+        } else {
+          incoming = String(value || '').trim()
+          if (!incoming) return
         }
-        fill('japanese_name', profile.japanese_name, zh('日文名', 'Japanese'))
-        fill('roman_name', profile.roman_name, zh('罗马名', 'Roman'))
-        fill('chinese_name', profile.chinese_name, zh('中文名', 'Chinese'))
-        fill('birth_date', profile.birth_date, zh('生日', 'Birthday'))
-        fill('height_cm', profile.height_cm, zh('身高', 'Height'), true)
-        fill('bust', profile.bust, zh('胸围', 'Bust'), true)
-        fill('waist', profile.waist, zh('腰围', 'Waist'), true)
-        fill('hips', profile.hips, zh('臀围', 'Hips'), true)
-        fill('cup', profile.cup, zh('罩杯', 'Cup'), true)
-        const aliases = Array.isArray(profile.aliases) ? profile.aliases.filter(Boolean) : []
-        if (aliases.length) {
-          const merged = mergeAliasLists(next.aliases, aliases)
-          if (merged.length > next.aliases.length) {
-            next.aliases = merged
-            filled.push(zh('别名', 'Aliases'))
-          }
+        const before = next[key] == null ? '' : String(next[key]).trim()
+        if (before === incoming) return
+        next[key] = incoming
+        changes.push(`${label} ${incoming}`)
+      }
+      apply('japanese_name', profile.japanese_name, zh('日文名', 'Japanese'))
+      apply('roman_name', profile.roman_name, zh('罗马名', 'Roman'))
+      apply('chinese_name', profile.chinese_name, zh('中文名', 'Chinese'))
+      apply('birth_date', profile.birth_date, zh('生日', 'Birthday'))
+      apply('height_cm', profile.height_cm, zh('身高', 'Height'), true)
+      apply('bust', profile.bust, zh('胸围', 'Bust'), true)
+      apply('waist', profile.waist, zh('腰围', 'Waist'), true)
+      apply('hips', profile.hips, zh('臀围', 'Hips'), true)
+      apply('cup', profile.cup, zh('罩杯', 'Cup'), true)
+      const aliases = Array.isArray(profile.aliases) ? profile.aliases.filter(Boolean) : []
+      if (aliases.length) {
+        const merged = mergeAliasLists(next.aliases, aliases)
+        if (merged.length > next.aliases.length) {
+          const added = merged.slice(next.aliases.length)
+          next.aliases = merged
+          changes.push(`${zh('别名', 'Aliases')} +${added.join('、')}`)
         }
-        return next
-      })
+      }
+      setForm(next)
       const sourceLabel =
         source === 'minnano'
           ? 'minnano'
@@ -598,14 +600,14 @@ export function JavIdolEditModal({
               ? 'JavModel'
               : source
       setRecognizeNote(
-        filled.length
+        changes.length
           ? zh(
-              `已从 ${sourceLabel} 填入：${filled.join('、')}（只填空字段，请确认后保存）`,
-              `Filled from ${sourceLabel}: ${filled.join(', ')} (empty fields only; confirm then save)`
+              `已从 ${sourceLabel} 校准：${changes.join('、')}（请确认后保存）`,
+              `Updated from ${sourceLabel}: ${changes.join(', ')} (confirm then save)`
             )
           : zh(
-              `已从 ${sourceLabel} 查到资料，但字段都已有值，无需修改`,
-              `Found data from ${sourceLabel}, all fields already set`
+              `已从 ${sourceLabel} 核对，所有字段都一致，无需修改`,
+              `Checked against ${sourceLabel}; all fields already match`
             )
       )
     } catch (err) {
