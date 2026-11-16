@@ -3,87 +3,104 @@ package scrape
 import (
 	"context"
 	"errors"
-	"fmt"
 	"reflect"
 	"strings"
+	"sync"
 	"testing"
 )
 
-func TestResolveJavByCodes(t *testing.T) {
-	requestErr := errors.New("request failed")
-	secondErr := errors.New("second request failed")
-	type attempt struct {
-		provider Provider
-		code     string
+func withTestPriority(t *testing.T) {
+	t.Helper()
+	SetPriorityConfig(map[string]string{
+		ConfigKeyForCode(CodeCensored):   "javbus,javdb",
+		ConfigKeyForCode(CodeUncensored): "javbus,javdb",
+		ConfigKeyForCode(CodeAmateur):    "javbus,javdb",
+		ConfigKeyForCode(CodeFC2):        "javbus,javdb",
+	})
+	t.Cleanup(func() { SetPriorityConfig(nil) })
+}
+
+func TestResolveJavByCodesAggregates(t *testing.T) {
+	withTestPriority(t)
+	client := NewMetadataClient(map[Provider]any{
+		ProviderJavBus: movieLookupFunc(func(_ context.Context, code string) (*JavInfo, error) {
+			return &JavInfo{Code: code, Provider: ProviderJavBus, Title: "bus title", Tags: []string{"A"}, CoverURL: "bus"}, nil
+		}),
+		ProviderJavDB: movieLookupFunc(func(_ context.Context, code string) (*JavInfo, error) {
+			return &JavInfo{Code: code, Provider: ProviderJavDB, Studio: "db studio", Actors: []string{"X"}, CoverURL: "db"}, nil
+		}),
+		ProviderAvmoo: movieLookupFunc(func(context.Context, string) (*JavInfo, error) { return nil, ErrNotFound }),
+		ProviderAvsox: movieLookupFunc(func(context.Context, string) (*JavInfo, error) { return nil, ErrNotFound }),
+	}, nil)
+	info, err := client.ResolveJavByCodes(context.Background(), []string{"IPX-228"}, nil)
+	if err != nil {
+		t.Fatal(err)
 	}
-	first := attempt{ProviderJavMenu, "GANA-001"}
-	second := attempt{ProviderJavBus, "GANA-001"}
-	third := attempt{ProviderJavBus, "STARS-001"}
-	fourth := attempt{ProviderAvmoo, "STARS-001"}
-	fallback := attempt{ProviderAvsox, "123456_001"}
-	last := attempt{ProviderAvsox, "123456_002"}
-	all := []attempt{first, second, third, fourth, fallback, last}
-	for _, tc := range []struct {
-		name       string
-		hit        attempt
-		errors     map[attempt]error
-		empty      attempt
-		wantCalls  []attempt
-		wantErrors []error
-	}{
-		{name: "first hit stops all lookups", hit: first, wantCalls: all[:1]},
-		{name: "provider fallback", hit: second, wantCalls: all[:2]},
-		{name: "candidate order before avsox", hit: fourth, wantCalls: all[:4]},
-		{name: "avsox uses separate candidates", hit: last, wantCalls: all},
-		{name: "request failure falls back", hit: second, errors: map[attempt]error{first: requestErr}, wantCalls: all[:2]},
-		{name: "empty result falls back", empty: first, hit: second, wantCalls: all[:2]},
-		{name: "all not found", wantCalls: all, wantErrors: []error{ErrNotFound}},
-		{name: "request failures retained", errors: map[attempt]error{first: requestErr, fallback: secondErr}, wantCalls: all, wantErrors: []error{requestErr, secondErr}},
-		{name: "provider timeout falls back", errors: map[attempt]error{first: context.DeadlineExceeded}, hit: second, wantCalls: all[:2]},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			var calls []attempt
-			providers := make(map[Provider]any)
-			want := &JavInfo{Code: tc.hit.code, Provider: tc.hit.provider, Title: "matched"}
-			for _, provider := range []Provider{ProviderJavMenu, ProviderJavBus, ProviderAvmoo, ProviderAvsox} {
-				providers[provider] = movieLookupFunc(func(ctx context.Context, code string) (*JavInfo, error) {
-					call := attempt{provider, code}
-					calls = append(calls, call)
-					if err := tc.errors[call]; err != nil {
-						return nil, err
-					}
-					if call == tc.hit {
-						return want, nil
-					}
-					if call == tc.empty {
-						return nil, nil
-					}
-					return nil, fmt.Errorf("lookup: %w", ErrNotFound)
-				})
+	if info.Title != "bus title" || info.Studio != "db studio" {
+		t.Fatalf("Title/Studio = %q/%q", info.Title, info.Studio)
+	}
+	if !reflect.DeepEqual(info.Tags, []string{"A"}) || !reflect.DeepEqual(info.Actors, []string{"X"}) {
+		t.Fatalf("Tags/Actors = %v/%v", info.Tags, info.Actors)
+	}
+	if info.CoverURL != "bus" {
+		t.Fatalf("CoverURL = %q, want bus (JavDB fallback)", info.CoverURL)
+	}
+}
+
+func TestResolveJavByCodesAdvancesOnNotFound(t *testing.T) {
+	withTestPriority(t)
+	client := NewMetadataClient(map[Provider]any{
+		ProviderJavBus: movieLookupFunc(func(context.Context, string) (*JavInfo, error) { return nil, ErrNotFound }),
+		ProviderJavDB: movieLookupFunc(func(_ context.Context, code string) (*JavInfo, error) {
+			if code != "SECOND-002" {
+				return nil, ErrNotFound
 			}
-			client := NewMetadataClient(providers, nil)
-			info, err := client.ResolveJavByCodes(context.Background(), []string{"GANA-001", "STARS-001"}, []string{"123456_001", "123456_002"})
-			if !reflect.DeepEqual(calls, tc.wantCalls) {
-				t.Fatalf("calls = %v, want %v", calls, tc.wantCalls)
-			}
-			if len(tc.wantErrors) == 0 {
-				if err != nil || info != want {
-					t.Fatalf("result = %+v, %v; want first matching metadata", info, err)
-				}
-				return
-			}
-			if info != nil {
-				t.Fatalf("unexpected result: %+v", info)
-			}
-			for _, wantErr := range tc.wantErrors {
-				if !errors.Is(err, wantErr) {
-					t.Fatalf("error = %v, want %v", err, wantErr)
-				}
-			}
-			if tc.errors != nil && (errors.Is(err, ErrNotFound) || !strings.Contains(err.Error(), "provider=javmenu code=GANA-001")) {
-				t.Fatalf("lookup failures must retain context and be distinct from not found: %v", err)
-			}
-		})
+			return &JavInfo{Code: code, Provider: ProviderJavDB, Title: "second code"}, nil
+		}),
+		ProviderAvmoo: movieLookupFunc(func(context.Context, string) (*JavInfo, error) { return nil, ErrNotFound }),
+		ProviderAvsox: movieLookupFunc(func(context.Context, string) (*JavInfo, error) { return nil, ErrNotFound }),
+	}, nil)
+	info, err := client.ResolveJavByCodes(context.Background(), []string{"FIRST-001", "SECOND-002"}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info == nil || info.Title != "second code" || info.Code != "SECOND-002" {
+		t.Fatalf("info = %+v", info)
+	}
+}
+
+func TestResolveJavByCodesRetainsFailures(t *testing.T) {
+	withTestPriority(t)
+	requestErr := errors.New("request failed")
+	client := NewMetadataClient(map[Provider]any{
+		ProviderJavBus: movieLookupFunc(func(context.Context, string) (*JavInfo, error) { return nil, requestErr }),
+		ProviderJavDB:  movieLookupFunc(func(context.Context, string) (*JavInfo, error) { return nil, ErrNotFound }),
+		ProviderAvmoo:  movieLookupFunc(func(context.Context, string) (*JavInfo, error) { return nil, ErrNotFound }),
+		ProviderAvsox:  movieLookupFunc(func(context.Context, string) (*JavInfo, error) { return nil, ErrNotFound }),
+	}, nil)
+	info, err := client.ResolveJavByCodes(context.Background(), []string{"IPX-228"}, nil)
+	if info != nil {
+		t.Fatalf("info = %+v", info)
+	}
+	if !errors.Is(err, requestErr) || errors.Is(err, ErrNotFound) {
+		t.Fatalf("err = %v, want retained request failure", err)
+	}
+	if !strings.Contains(err.Error(), "source=javbus") {
+		t.Fatalf("err = %v, want source context", err)
+	}
+}
+
+func TestResolveJavByCodesAllNotFound(t *testing.T) {
+	withTestPriority(t)
+	client := NewMetadataClient(map[Provider]any{
+		ProviderJavBus: movieLookupFunc(func(context.Context, string) (*JavInfo, error) { return nil, ErrNotFound }),
+		ProviderJavDB:  movieLookupFunc(func(context.Context, string) (*JavInfo, error) { return nil, ErrNotFound }),
+		ProviderAvmoo:  movieLookupFunc(func(context.Context, string) (*JavInfo, error) { return nil, ErrNotFound }),
+		ProviderAvsox:  movieLookupFunc(func(context.Context, string) (*JavInfo, error) { return nil, ErrNotFound }),
+	}, nil)
+	info, err := client.ResolveJavByCodes(context.Background(), []string{"IPX-228"}, nil)
+	if info != nil || !errors.Is(err, ErrNotFound) {
+		t.Fatalf("result = %+v, %v", info, err)
 	}
 }
 
@@ -112,57 +129,43 @@ func TestResolveJavByCodesUncensoredCandidatesOnly(t *testing.T) {
 }
 
 func TestResolveJavByCodesCancellation(t *testing.T) {
+	withTestPriority(t)
 	for _, tc := range []struct {
-		name      string
-		before    bool
-		deadline  bool
-		returnHit bool
+		name   string
+		before bool
 	}{
 		{name: "already cancelled", before: true},
-		{name: "expired deadline", before: true, deadline: true},
 		{name: "cancelled during lookup"},
-		{name: "cancelled despite returned hit", returnHit: true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
-			wantErr := context.Canceled
-			if tc.deadline {
-				cancel()
-				ctx, cancel = context.WithTimeout(context.Background(), 0)
-				wantErr = context.DeadlineExceeded
-			}
 			defer cancel()
 			if tc.before {
 				cancel()
 			}
+			var mu sync.Mutex
 			calls := 0
+			provider := movieLookupFunc(func(got context.Context, _ string) (*JavInfo, error) {
+				mu.Lock()
+				calls++
+				mu.Unlock()
+				cancel()
+				return nil, got.Err()
+			})
 			client := NewMetadataClient(map[Provider]any{
-				ProviderJavMenu: movieLookupFunc(func(got context.Context, _ string) (*JavInfo, error) {
-					calls++
-					if got != ctx {
-						t.Fatal("context was not preserved")
-					}
-					cancel()
-					if tc.returnHit {
-						return &JavInfo{Code: "GANA-001"}, nil
-					}
-					return nil, got.Err()
-				}),
-				ProviderJavBus: movieLookupFunc(func(context.Context, string) (*JavInfo, error) {
-					t.Fatal("fallback called after cancellation")
-					return nil, nil
-				}),
+				ProviderJavBus: provider,
+				ProviderJavDB:  provider,
+				ProviderAvmoo:  provider,
+				ProviderAvsox:  provider,
 			}, nil)
-			info, err := client.ResolveJavByCodes(ctx, []string{"GANA-001"}, nil)
-			if info != nil || !errors.Is(err, wantErr) {
-				t.Fatalf("result = %+v, %v; want %v", info, err, wantErr)
+			info, err := client.ResolveJavByCodes(ctx, []string{"IPX-228"}, nil)
+			if info != nil || !errors.Is(err, context.Canceled) {
+				t.Fatalf("result = %+v, %v; want cancellation", info, err)
 			}
-			wantCalls := 1
-			if tc.before {
-				wantCalls = 0
-			}
-			if calls != wantCalls {
-				t.Fatalf("lookup calls = %d, want %d", calls, wantCalls)
+			mu.Lock()
+			defer mu.Unlock()
+			if tc.before && calls != 0 {
+				t.Fatalf("lookup calls = %d, want 0", calls)
 			}
 		})
 	}

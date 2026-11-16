@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"slices"
+	"sync"
 	"testing"
 
 	"javboss/internal/jav/scrape/javdbapi"
@@ -47,20 +47,24 @@ func TestResolveFC2FilenameThroughJavDBAPI(t *testing.T) {
 
 func TestResolveFC2ProviderFallback(t *testing.T) {
 	for _, tc := range []struct {
-		name      string
-		apiErr    error
-		wantCalls []Provider
+		name        string
+		apiErr      error
+		wantResult  Provider
+		wantQueried []Provider
 	}{
-		{"api hit", nil, []Provider{ProviderJavDBAPI}},
-		{"api miss", ErrNotFound, []Provider{ProviderJavDBAPI, ProviderAvsox}},
-		{"api failure", errors.New("request failed"), []Provider{ProviderJavDBAPI, ProviderAvsox}},
+		{"api hit", nil, ProviderJavDBAPI, []Provider{ProviderJavDBAPI, ProviderAvsox}},
+		{"api miss", ErrNotFound, ProviderAvsox, []Provider{ProviderJavDBAPI, ProviderAvsox}},
+		{"api failure", errors.New("request failed"), ProviderAvsox, []Provider{ProviderJavDBAPI, ProviderAvsox}},
 	} {
 		for _, forced := range []bool{false, true} {
 			t.Run(fmt.Sprintf("%s/forced=%t", tc.name, forced), func(t *testing.T) {
-				var calls []Provider
+				queried := make(map[Provider]bool)
+				var mu sync.Mutex
 				client := NewMetadataClient(map[Provider]any{
 					ProviderJavDBAPI: movieLookupFunc(func(_ context.Context, code string) (*JavInfo, error) {
-						calls = append(calls, ProviderJavDBAPI)
+						mu.Lock()
+						queried[ProviderJavDBAPI] = true
+						mu.Unlock()
 						if code != "FC2-PPV-1234567" {
 							t.Fatalf("API input = %q", code)
 						}
@@ -70,7 +74,9 @@ func TestResolveFC2ProviderFallback(t *testing.T) {
 						return &JavInfo{Code: code, Provider: ProviderJavDBAPI}, nil
 					}),
 					ProviderAvsox: movieLookupFunc(func(_ context.Context, code string) (*JavInfo, error) {
-						calls = append(calls, ProviderAvsox)
+						mu.Lock()
+						queried[ProviderAvsox] = true
+						mu.Unlock()
 						if code != "FC2-PPV-1234567" {
 							t.Fatalf("Avsox input = %q", code)
 						}
@@ -85,11 +91,16 @@ func TestResolveFC2ProviderFallback(t *testing.T) {
 					uncensoredCodes = codes
 				}
 				info, err := client.ResolveJavByCodes(context.Background(), codes, uncensoredCodes)
-				if err != nil || info == nil || info.Code != "FC2-PPV-1234567" || info.Provider != tc.wantCalls[len(tc.wantCalls)-1] {
-					t.Fatalf("result = %+v, %v", info, err)
+				if err != nil || info == nil || info.Code != "FC2-PPV-1234567" || info.Provider != tc.wantResult {
+					t.Fatalf("result = %+v, %v; want provider %s", info, err, tc.wantResult)
 				}
-				if !slices.Equal(calls, tc.wantCalls) {
-					t.Fatalf("calls = %v, want %v", calls, tc.wantCalls)
+				for _, p := range tc.wantQueried {
+					mu.Lock()
+					got := queried[p]
+					mu.Unlock()
+					if !got {
+						t.Errorf("provider %s was not queried", p)
+					}
 				}
 			})
 		}

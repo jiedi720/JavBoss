@@ -12,6 +12,7 @@ import AppModal from '@/shared/ui/AppModal'
 import PlayerSettingsModal from '@/features/settings/components/PlayerSettingsModal'
 import WebHotkeySettings from '@/features/settings/components/WebHotkeySettings'
 import ProviderAvailabilityPanel from '@/features/settings/components/ProviderAvailabilityPanel'
+import ScrapePriorityPanel from '@/features/settings/components/ScrapePriorityPanel'
 import ResourceDashboard from '@/features/settings/components/ResourceDashboard'
 import AppUpdateSettings from '@/features/settings/components/AppUpdateSettings'
 import AppearanceSettings from '@/features/settings/components/AppearanceSettings'
@@ -1594,10 +1595,13 @@ export default function GlobalSettingsModal({
           {currentSection === 'resources' && <ResourceDashboard />}
           {currentSection === 'network' && renderNetworkPanel()}
           {currentSection === 'jav-providers' && (
-            <ProviderAvailabilityPanel
-              key={`${currentProxyMode}:${proxyHost || ''}:${proxyPort || 0}`}
-              disabled={proxyEditing || savingProxy}
-            />
+            <div className="space-y-5">
+              <ScrapePriorityPanel />
+              <ProviderAvailabilityPanel
+                key={`${currentProxyMode}:${proxyHost || ''}:${proxyPort || 0}`}
+                disabled={proxyEditing || savingProxy}
+              />
+            </div>
           )}
           {currentSection === 'ai-translation' && <TitleTranslationToolSettings />}
           {currentSection === 'tools' && renderToolsPanel()}

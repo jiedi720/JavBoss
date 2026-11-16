@@ -85,65 +85,69 @@ func updateConfig(c *gin.Context) {
 	}
 
 	var req struct {
-		SubtitleAutoDownload      *bool                      `json:"subtitle_auto_download"`
-		SubtitleLanguage          *string                    `json:"subtitle_language"`
-		VideoPageSize             *int                       `json:"video_page_size"`
-		VideoWaterfallDefault     *bool                      `json:"video_waterfall_default"`
-		VideoShowDirectoryBar     *bool                      `json:"video_show_directory_bar"`
-		JavPageSize               *int                       `json:"jav_page_size"`
-		JavGridColumns            *int                       `json:"jav_grid_columns"`
-		JavCardPortrait           *bool                      `json:"jav_card_portrait"`
-		JavHighSaturationTags     *bool                      `json:"jav_high_saturation_tags"`
-		JavTitleMaxRows           *int                       `json:"jav_title_max_rows"`
-		TitleTranslateProvider    *string                    `json:"jav_title_translation_provider"`
-		TitleTranslateProfiles    map[string]json.RawMessage `json:"jav_title_translation_profiles"`
-		SeriesTranslateEnabled    *bool                      `json:"jav_series_translation_enabled"`
-		TitleTranslateEnabled     *bool                      `json:"jav_title_translation_enabled"`
-		TitleTranslateAutomatic   *bool                      `json:"jav_title_translation_auto_enabled"`
-		SeriesTranslateAutomatic  *bool                      `json:"jav_series_translation_auto_enabled"`
-		TitleTranslatePrompt      *string                    `json:"jav_title_translation_prompt"`
-		JavIdolTagMaxRows         *int                       `json:"jav_idol_tag_max_rows"`
-		JavTagMaxRows             *int                       `json:"jav_tag_max_rows"`
-		JavHideStudio             *bool                      `json:"jav_hide_studio"`
-		JavHideSeries             *bool                      `json:"jav_hide_series"`
-		JavHideIdols              *bool                      `json:"jav_hide_idols"`
-		JavHideTags               *bool                      `json:"jav_hide_tags"`
-		JavHideActions            *bool                      `json:"jav_hide_actions"`
-		JavFavoriteRatingFull     *bool                      `json:"jav_favorite_rating_show_full"`
-		JavWaterfallDefault       *bool                      `json:"jav_waterfall_default"`
-		IdolPageSize              *int                       `json:"idol_page_size"`
-		IdolWaterfallDefault      *bool                      `json:"idol_waterfall_default"`
-		StudioPageSize            *int                       `json:"studio_page_size"`
-		StudioWaterfallDefault    *bool                      `json:"studio_waterfall_default"`
-		SeriesPageSize            *int                       `json:"series_page_size"`
-		SeriesWaterfallDefault    *bool                      `json:"series_waterfall_default"`
-		VideoHideJav              *bool                      `json:"video_hide_jav"`
-		VideoSort                 string                     `json:"video_sort"`
-		JavSort                   string                     `json:"jav_sort"`
-		JavSortRules              *javSortRulesConfig        `json:"jav_sort_rules"`
-		IdolSort                  string                     `json:"idol_sort"`
-		JavIdolPreferChinese      *bool                      `json:"jav_idol_prefer_chinese_name"`
-		JavTagShowSimplified      *bool                      `json:"jav_tag_show_simplified"`
-		DefaultPlayer             string                     `json:"default_player"`
-		InitialViewMode           string                     `json:"initial_view_mode"`
-		AllowLANAccess            *bool                      `json:"allow_lan_access"`
-		ProxyHost                 *string                    `json:"proxy_host"`
-		ProxyMode                 *string                    `json:"proxy_mode"`
-		ProxyPort                 *int                       `json:"proxy_port"`
-		PlayerWindowSize          *int                       `json:"player_window_size"`
-		PlayerWindowWidth         *int                       `json:"player_window_width"`
-		PlayerWindowHeight        *int                       `json:"player_window_height"`
-		PlayerVolume              *int                       `json:"player_volume"`
-		PlayerOntop               *bool                      `json:"player_ontop"`
-		PlayerReuseWindow         *bool                      `json:"player_reuse_window"`
-		PlayerResumePlayback      *bool                      `json:"player_resume_playback"`
-		PlayerShowHotkeyHint      *bool                      `json:"player_show_hotkey_hint"`
-		BrowserShowHotkeyHint     *bool                      `json:"browser_player_show_hotkey_hint"`
-		PlayerHotkeys             []playerHotkeyPayload      `json:"player_hotkeys"`
-		WebHotkeys                []webHotkeyPayload         `json:"web_hotkeys"`
-		VideoWatchTimeIconMinutes *int                       `json:"video_watch_time_icon_minutes"`
-		JavWatchTimeIconMinutes   *int                       `json:"jav_watch_time_icon_minutes"`
-		BrowserResumePlayback     *bool                      `json:"browser_player_resume_playback"`
+		SubtitleAutoDownload        *bool                      `json:"subtitle_auto_download"`
+		SubtitleLanguage            *string                    `json:"subtitle_language"`
+		VideoPageSize               *int                       `json:"video_page_size"`
+		VideoWaterfallDefault       *bool                      `json:"video_waterfall_default"`
+		VideoShowDirectoryBar       *bool                      `json:"video_show_directory_bar"`
+		JavPageSize                 *int                       `json:"jav_page_size"`
+		JavGridColumns              *int                       `json:"jav_grid_columns"`
+		JavCardPortrait             *bool                      `json:"jav_card_portrait"`
+		JavHighSaturationTags       *bool                      `json:"jav_high_saturation_tags"`
+		JavTitleMaxRows             *int                       `json:"jav_title_max_rows"`
+		TitleTranslateProvider      *string                    `json:"jav_title_translation_provider"`
+		TitleTranslateProfiles      map[string]json.RawMessage `json:"jav_title_translation_profiles"`
+		SeriesTranslateEnabled      *bool                      `json:"jav_series_translation_enabled"`
+		TitleTranslateEnabled       *bool                      `json:"jav_title_translation_enabled"`
+		TitleTranslateAutomatic     *bool                      `json:"jav_title_translation_auto_enabled"`
+		SeriesTranslateAutomatic    *bool                      `json:"jav_series_translation_auto_enabled"`
+		TitleTranslatePrompt        *string                    `json:"jav_title_translation_prompt"`
+		JavIdolTagMaxRows           *int                       `json:"jav_idol_tag_max_rows"`
+		JavTagMaxRows               *int                       `json:"jav_tag_max_rows"`
+		JavHideStudio               *bool                      `json:"jav_hide_studio"`
+		JavHideSeries               *bool                      `json:"jav_hide_series"`
+		JavHideIdols                *bool                      `json:"jav_hide_idols"`
+		JavHideTags                 *bool                      `json:"jav_hide_tags"`
+		JavHideActions              *bool                      `json:"jav_hide_actions"`
+		JavFavoriteRatingFull       *bool                      `json:"jav_favorite_rating_show_full"`
+		JavWaterfallDefault         *bool                      `json:"jav_waterfall_default"`
+		IdolPageSize                *int                       `json:"idol_page_size"`
+		IdolWaterfallDefault        *bool                      `json:"idol_waterfall_default"`
+		StudioPageSize              *int                       `json:"studio_page_size"`
+		StudioWaterfallDefault      *bool                      `json:"studio_waterfall_default"`
+		SeriesPageSize              *int                       `json:"series_page_size"`
+		SeriesWaterfallDefault      *bool                      `json:"series_waterfall_default"`
+		VideoHideJav                *bool                      `json:"video_hide_jav"`
+		VideoSort                   string                     `json:"video_sort"`
+		JavSort                     string                     `json:"jav_sort"`
+		JavSortRules                *javSortRulesConfig        `json:"jav_sort_rules"`
+		IdolSort                    string                     `json:"idol_sort"`
+		JavIdolPreferChinese        *bool                      `json:"jav_idol_prefer_chinese_name"`
+		JavTagShowSimplified        *bool                      `json:"jav_tag_show_simplified"`
+		DefaultPlayer               string                     `json:"default_player"`
+		InitialViewMode             string                     `json:"initial_view_mode"`
+		AllowLANAccess              *bool                      `json:"allow_lan_access"`
+		ProxyHost                   *string                    `json:"proxy_host"`
+		ProxyMode                   *string                    `json:"proxy_mode"`
+		ProxyPort                   *int                       `json:"proxy_port"`
+		JavScrapePriorityCensored   *string                    `json:"jav_scrape_priority_censored"`
+		JavScrapePriorityUncensored *string                    `json:"jav_scrape_priority_uncensored"`
+		JavScrapePriorityAmateur    *string                    `json:"jav_scrape_priority_amateur"`
+		JavScrapePriorityFC2        *string                    `json:"jav_scrape_priority_fc2"`
+		PlayerWindowSize            *int                       `json:"player_window_size"`
+		PlayerWindowWidth           *int                       `json:"player_window_width"`
+		PlayerWindowHeight          *int                       `json:"player_window_height"`
+		PlayerVolume                *int                       `json:"player_volume"`
+		PlayerOntop                 *bool                      `json:"player_ontop"`
+		PlayerReuseWindow           *bool                      `json:"player_reuse_window"`
+		PlayerResumePlayback        *bool                      `json:"player_resume_playback"`
+		PlayerShowHotkeyHint        *bool                      `json:"player_show_hotkey_hint"`
+		BrowserShowHotkeyHint       *bool                      `json:"browser_player_show_hotkey_hint"`
+		PlayerHotkeys               []playerHotkeyPayload      `json:"player_hotkeys"`
+		WebHotkeys                  []webHotkeyPayload         `json:"web_hotkeys"`
+		VideoWatchTimeIconMinutes   *int                       `json:"video_watch_time_icon_minutes"`
+		JavWatchTimeIconMinutes     *int                       `json:"jav_watch_time_icon_minutes"`
+		BrowserResumePlayback       *bool                      `json:"browser_player_resume_playback"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		respondLocalizedError(c, http.StatusBadRequest, "配置请求无效", "Invalid configuration request")
@@ -161,6 +165,18 @@ func updateConfig(c *gin.Context) {
 		}
 		entries["subtitle_language"] = *req.SubtitleLanguage
 	}
+	for key, value := range map[string]*string{
+		scrape.ConfigKeyForCode(scrape.CodeCensored):   req.JavScrapePriorityCensored,
+		scrape.ConfigKeyForCode(scrape.CodeUncensored): req.JavScrapePriorityUncensored,
+		scrape.ConfigKeyForCode(scrape.CodeAmateur):    req.JavScrapePriorityAmateur,
+		scrape.ConfigKeyForCode(scrape.CodeFC2):        req.JavScrapePriorityFC2,
+	} {
+		if value == nil {
+			continue
+		}
+		entries[key] = strings.Join(scrape.NormalizePriorityList(scrape.ParsePriorityConfig(*value)), ",")
+	}
+
 	clampSize := func(n int) (string, bool) {
 		if n <= 0 {
 			return "", false
@@ -676,6 +692,13 @@ func updateConfig(c *gin.Context) {
 }
 
 func applyRuntimeConfigFields(cfg map[string]string, remoteAddr string) {
+	for _, category := range []string{scrape.CodeCensored, scrape.CodeUncensored, scrape.CodeAmateur, scrape.CodeFC2} {
+		key := scrape.ConfigKeyForCode(category)
+		if strings.TrimSpace(cfg[key]) == "" {
+			cfg[key] = scrape.DefaultPriorityConfig(category)
+		}
+	}
+	scrape.SetPriorityConfig(cfg)
 	cfg["app_version"] = common.Version
 	translation.PublicConfig(cfg)
 	cfg["jav_title_translation_default_prompt"] = translation.DefaultPrompt
