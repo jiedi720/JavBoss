@@ -6,7 +6,12 @@ import PhotoCameraRoundedIcon from '@mui/icons-material/PhotoCameraRounded'
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded'
 import StarBorderRoundedIcon from '@mui/icons-material/StarBorderRounded'
 import StarRoundedIcon from '@mui/icons-material/StarRounded'
-import { fetchJavIdolOptions, mergeJavIdols, updateJavIdol } from '@/features/jav/api'
+import {
+  fetchJavActressProfile,
+  fetchJavIdolOptions,
+  mergeJavIdols,
+  updateJavIdol,
+} from '@/features/jav/api'
 import { actorGenderOf, actorTerms } from '@/utils/actorTabs'
 import AppModal from '@/shared/ui/AppModal'
 import Tooltip from '@/shared/ui/Tooltip'
@@ -497,6 +502,8 @@ export function JavIdolEditModal({
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [mergeOpen, setMergeOpen] = useState(false)
+  const [recognizing, setRecognizing] = useState(false)
+  const [recognizeNote, setRecognizeNote] = useState('')
   const actorGender = actorGenderOf(gender, item)
   const terms = actorTerms(actorGender)
   const idolId = Number(item?.id)
@@ -508,6 +515,7 @@ export function JavIdolEditModal({
       setError('')
       setSaving(false)
       setMergeOpen(false)
+      setRecognizeNote('')
     }
   }, [item, open])
 
@@ -531,6 +539,82 @@ export function JavIdolEditModal({
       ...current,
       aliases: current.aliases.filter((item) => item !== alias),
     }))
+  }
+
+  const handleRecognize = async () => {
+    const name = String(form.japanese_name || form.name || '').trim()
+    if (!name) {
+      setRecognizeNote(zh('请先填写日文名或名字再识别', 'Enter a Japanese name first'))
+      return
+    }
+    setRecognizing(true)
+    setRecognizeNote('')
+    setError('')
+    try {
+      const data = await fetchJavActressProfile(name)
+      const profile = data?.profile || {}
+      const source = data?.source || ''
+      const filled = []
+      setForm((current) => {
+        const next = { ...current }
+        const fill = (key, value, label, numeric = false) => {
+          if (next[key] !== '' && next[key] != null) return
+          if (numeric) {
+            const n = Number(value)
+            if (!Number.isFinite(n) || n <= 0) return
+            next[key] = String(n)
+          } else {
+            const text = String(value || '').trim()
+            if (!text) return
+            next[key] = text
+          }
+          filled.push(label)
+        }
+        fill('japanese_name', profile.japanese_name, zh('日文名', 'Japanese'))
+        fill('roman_name', profile.roman_name, zh('罗马名', 'Roman'))
+        fill('chinese_name', profile.chinese_name, zh('中文名', 'Chinese'))
+        fill('birth_date', profile.birth_date, zh('生日', 'Birthday'))
+        fill('height_cm', profile.height_cm, zh('身高', 'Height'), true)
+        fill('bust', profile.bust, zh('胸围', 'Bust'), true)
+        fill('waist', profile.waist, zh('腰围', 'Waist'), true)
+        fill('hips', profile.hips, zh('臀围', 'Hips'), true)
+        fill('cup', profile.cup, zh('罩杯', 'Cup'), true)
+        const aliases = Array.isArray(profile.aliases) ? profile.aliases.filter(Boolean) : []
+        if (aliases.length) {
+          const merged = mergeAliasLists(next.aliases, aliases)
+          if (merged.length > next.aliases.length) {
+            next.aliases = merged
+            filled.push(zh('别名', 'Aliases'))
+          }
+        }
+        return next
+      })
+      const sourceLabel =
+        source === 'minnano'
+          ? 'minnano'
+          : source === 'avwiki'
+            ? 'AV Wiki'
+            : source === 'javmodel'
+              ? 'JavModel'
+              : source
+      setRecognizeNote(
+        filled.length
+          ? zh(
+              `已从 ${sourceLabel} 填入：${filled.join('、')}（只填空字段，请确认后保存）`,
+              `Filled from ${sourceLabel}: ${filled.join(', ')} (empty fields only; confirm then save)`
+            )
+          : zh(
+              `已从 ${sourceLabel} 查到资料，但字段都已有值，无需修改`,
+              `Found data from ${sourceLabel}, all fields already set`
+            )
+      )
+    } catch (err) {
+      setRecognizeNote(
+        zh(`识别失败：${getErrorMessage(err)}`, `Recognition failed: ${getErrorMessage(err)}`)
+      )
+    } finally {
+      setRecognizing(false)
+    }
   }
 
   const handleSubmit = async (event) => {
@@ -585,6 +669,36 @@ export function JavIdolEditModal({
         </div>
 
         <div className="flex-1 overflow-y-auto p-4">
+          {!terms.male && (
+            <div className="mb-3 rounded border border-gray-200 bg-gray-50 p-3 dark:border-ui-border dark:bg-ui-muted">
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  disabled={recognizing || saving}
+                  className="flex items-center gap-1.5 rounded bg-sky-600 px-3 py-1.5 text-sm text-white transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  onClick={handleRecognize}
+                  title={zh(
+                    '从 minnano / AV Wiki 识别并回填女优资料',
+                    'Recognize and fill profile from minnano / AV Wiki'
+                  )}
+                >
+                  <SearchRoundedIcon sx={{ fontSize: 16 }} />
+                  {recognizing ? zh('识别中…', 'Recognizing…') : zh('信息识别', 'Recognize info')}
+                </button>
+                <span className="text-xs text-gray-500 dark:text-ui-faint">
+                  {zh(
+                    '按当前名字从 minnano / AV Wiki 补齐资料，只填空字段',
+                    'Fill empty fields from minnano / AV Wiki'
+                  )}
+                </span>
+              </div>
+              {recognizeNote ? (
+                <div className="mt-2 text-xs text-gray-600 dark:text-ui-secondary">
+                  {recognizeNote}
+                </div>
+              ) : null}
+            </div>
+          )}
           <div className="grid gap-3 md:grid-cols-2">
             <TextField
               label={zh('日文名', 'Japanese name')}
