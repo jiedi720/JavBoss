@@ -19,9 +19,9 @@ type Video struct {
 	JavScrapeOverride   string           `json:"jav_scrape_override"`
 	CoverScreenshotName string           `json:"cover_screenshot_name"`
 	WatchedMS           int64            `json:"watched_ms" gorm:"not null;default:0"`
+	SubtitleSettings    SubtitleSettings `json:"subtitle_settings" gorm:"serializer:json;type:text;not null;default:'{}'"`
 	FavoriteRating      float64          `json:"favorite_rating" gorm:"not null;default:0"`
 	FavoriteCount       int64            `json:"favorite_count" gorm:"-"`
-	SubtitleSettings    SubtitleSettings `json:"subtitle_settings" gorm:"serializer:json;type:text;not null;default:'{}'"`
 	MediaInfo           MediaInfo        `json:"-" gorm:"serializer:json;type:text;not null;default:'{}'"`
 	Tags                []Tag            `json:"tags,omitempty" gorm:"many2many:video_tag"`
 	JavID               *int64           `json:"jav_id" gorm:"-"`
