@@ -190,9 +190,9 @@ func TestProvidersForCode(t *testing.T) {
 			want: []Provider{ProviderAvmoo},
 		},
 		{
-			name: "other uses javbus",
+			name: "other uses javbus then javdb",
 			code: "IPX-228",
-			want: []Provider{ProviderJavBus},
+			want: []Provider{ProviderJavBus, ProviderJavDB},
 		},
 	}
 	for _, tt := range tests {

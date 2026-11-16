@@ -964,6 +964,10 @@ func parseVideoJavScrapeLookupProvider(value string) (scrape.Provider, bool) {
 		return scrape.ProviderJavBus, true
 	case "avsox":
 		return scrape.ProviderAvsox, true
+	case "javdb":
+		return scrape.ProviderJavDB, true
+	case "javdbapi":
+		return scrape.ProviderJavDBAPI, true
 	default:
 		return scrape.ProviderUnknown, false
 	}
@@ -977,6 +981,10 @@ func videoJavScrapeLookupProviderLabel(provider scrape.Provider) string {
 		return "JavBus"
 	case scrape.ProviderAvsox:
 		return "AVSOX"
+	case scrape.ProviderJavDB:
+		return "JavDB"
+	case scrape.ProviderJavDBAPI:
+		return "JavDB API"
 	default:
 		return provider.String()
 	}

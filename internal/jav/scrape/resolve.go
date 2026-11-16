@@ -67,6 +67,6 @@ func providersForCode(code string) []Provider {
 	case strings.HasPrefix(code, "AP-"):
 		return []Provider{ProviderAvmoo}
 	default:
-		return []Provider{ProviderJavBus}
+		return []Provider{ProviderJavBus, ProviderJavDB}
 	}
 }
