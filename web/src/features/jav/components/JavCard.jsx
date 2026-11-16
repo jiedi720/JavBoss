@@ -31,6 +31,7 @@ import WatchTimeIcons from '@/features/playback/components/WatchTimeIcons'
 export default function JavCard(props) {
   const { portrait = false, highSaturationTags = true } = props
   const [coverCropEditorOpen, setCoverCropEditorOpen] = useState(false)
+  const [externalLinksOpen, setExternalLinksOpen] = useState(false)
   const coverButtonSizeClassName = portrait ? 'h-7 w-7' : 'h-8 w-8'
   const coverSmallButtonSizeClassName = portrait ? 'h-6 w-6' : 'h-7 w-7'
   const favoriteRatingIconSize = portrait ? 18 : 21
@@ -334,7 +335,11 @@ export default function JavCard(props) {
             ) : null}
           </div>
           {externalLinks.length > 0 ? (
-            <div className="card-hover-focus-visible group/external-links absolute bottom-2 left-2 z-10 flex w-[calc(100%-1rem)] items-center opacity-0 transition-opacity group-hover:opacity-100">
+            <div
+              className="card-hover-focus-visible group/external-links absolute bottom-2 left-2 z-10 flex w-[calc(100%-1rem)] items-center opacity-0 transition-opacity group-hover:opacity-100"
+              onMouseEnter={() => setExternalLinksOpen(true)}
+              onMouseLeave={() => setExternalLinksOpen(false)}
+            >
               {portrait ? (
                 <button
                   type="button"
@@ -347,7 +352,11 @@ export default function JavCard(props) {
               <div
                 className={
                   portrait
-                    ? 'pointer-events-none invisible absolute bottom-full left-0 flex max-w-full flex-wrap-reverse items-center justify-end gap-1 pb-2 group-focus-within/external-links:pointer-events-auto group-focus-within/external-links:visible group-hover/external-links:pointer-events-auto group-hover/external-links:visible'
+                    ? `absolute bottom-[calc(100%-4px)] left-0 flex max-w-full flex-wrap-reverse items-center justify-start gap-1 pb-2 pt-1 transition-opacity ${
+                        externalLinksOpen
+                          ? 'visible opacity-100'
+                          : 'pointer-events-none invisible opacity-0'
+                      }`
                     : 'flex min-w-0 max-w-full flex-wrap-reverse items-center gap-1.5'
                 }
               >
