@@ -334,7 +334,7 @@ export default function JavCard(props) {
             ) : null}
           </div>
           {externalLinks.length > 0 ? (
-            <div className="card-hover-focus-visible group/external-links absolute bottom-2 left-2 z-10 flex max-w-[calc(100%-1rem)] items-center opacity-0 transition-opacity group-hover:opacity-100">
+            <div className="card-hover-focus-visible group/external-links absolute bottom-2 left-2 z-10 flex w-[calc(100%-1rem)] items-center opacity-0 transition-opacity group-hover:opacity-100">
               {portrait ? (
                 <button
                   type="button"
@@ -347,8 +347,8 @@ export default function JavCard(props) {
               <div
                 className={
                   portrait
-                    ? 'pointer-events-none invisible absolute bottom-full left-0 flex w-max items-center gap-1 pb-2 group-focus-within/external-links:pointer-events-auto group-focus-within/external-links:visible group-hover/external-links:pointer-events-auto group-hover/external-links:visible'
-                    : 'flex items-center gap-1.5'
+                    ? 'pointer-events-none invisible absolute bottom-full left-0 flex max-w-full flex-wrap-reverse items-center justify-end gap-1 pb-2 group-focus-within/external-links:pointer-events-auto group-focus-within/external-links:visible group-hover/external-links:pointer-events-auto group-hover/external-links:visible'
+                    : 'flex min-w-0 max-w-full flex-wrap-reverse items-center gap-1.5'
                 }
               >
                 {externalLinks.map((site) => (
