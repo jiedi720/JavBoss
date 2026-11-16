@@ -392,46 +392,56 @@ export default function JavIdolCoverModal({
               </div>
             </div>
 
-            <div
-              ref={previewRef}
-              className="relative w-full select-none overflow-hidden rounded bg-slate-100 dark:bg-ui-muted"
-              onPointerDown={handlePointerDown}
-              onPointerMove={handlePointerMove}
-              onPointerUp={handlePointerUp}
-              onPointerCancel={handlePointerUp}
-            >
-              {previewSrc && !imageFailed ? (
-                <img
-                  src={previewSrc}
-                  alt={previewCode || zh('封面预览', 'Cover preview')}
-                  className="block w-full"
-                  draggable={false}
-                  onLoad={(event) => {
-                    const img = event.currentTarget
-                    setImageSize({ width: img.naturalWidth, height: img.naturalHeight })
-                  }}
-                  onError={() => {
-                    setImageFailed(true)
-                    setImageSize(null)
-                  }}
-                />
-              ) : (
-                <div className="flex aspect-[800/538] items-center justify-center text-sm text-slate-500 dark:text-ui-faint">
-                  {zh('封面待下载', 'Cover pending')}
-                </div>
-              )}
-              {previewSrc && !imageFailed ? (
-                <div
-                  className="absolute inset-y-0 border-2 border-white bg-white/10 shadow-[0_0_0_999px_rgba(15,23,42,0.75)]"
-                  style={{
-                    left: `${displayCropLeft * 100}%`,
-                    width: `${visibleRatio * 100}%`,
-                  }}
-                >
-                  <div className="absolute inset-y-0 left-0 w-1 bg-white/80" />
-                  <div className="absolute inset-y-0 right-0 w-1 bg-white/80" />
-                </div>
-              ) : null}
+            <div className="flex w-full justify-center overflow-hidden rounded bg-slate-100 dark:bg-ui-muted">
+              <div
+                ref={previewRef}
+                className={`relative shrink-0 select-none ${
+                  showWorkCovers ? 'w-full' : 'max-w-full'
+                }`}
+                onPointerDown={handlePointerDown}
+                onPointerMove={handlePointerMove}
+                onPointerUp={handlePointerUp}
+                onPointerCancel={handlePointerUp}
+              >
+                {previewSrc && !imageFailed ? (
+                  <img
+                    src={previewSrc}
+                    alt={previewCode || zh('封面预览', 'Cover preview')}
+                    className={
+                      showWorkCovers ? 'block w-full' : 'block max-h-[60vh] w-auto max-w-full'
+                    }
+                    draggable={false}
+                    onLoad={(event) => {
+                      const img = event.currentTarget
+                      setImageSize({ width: img.naturalWidth, height: img.naturalHeight })
+                    }}
+                    onError={() => {
+                      setImageFailed(true)
+                      setImageSize(null)
+                    }}
+                  />
+                ) : (
+                  <div
+                    className={`flex aspect-[800/538] items-center justify-center text-sm text-slate-500 dark:text-ui-faint ${
+                      showWorkCovers ? 'w-full' : 'w-[32rem] max-w-full'
+                    }`}
+                  >
+                    {zh('封面待下载', 'Cover pending')}
+                  </div>
+                )}
+                {previewSrc && !imageFailed ? (
+                  <div
+                    className="absolute inset-y-0 border-2 border-white bg-white/10 shadow-[0_0_0_999px_rgba(15,23,42,0.75)]"
+                    style={{
+                      left: `${displayCropLeft * 100}%`,
+                      width: `${visibleRatio * 100}%`,
+                    }}
+                  >
+                    <div className="absolute inset-y-0 left-0 w-1 bg-white/80" />
+                    <div className="absolute inset-y-0 right-0 w-1 bg-white/80" />
+                  </div>
+                ) : null}
+              </div>
             </div>
 
             <label className="mt-4 flex items-center gap-3 text-sm text-slate-700 dark:text-ui-secondary">
