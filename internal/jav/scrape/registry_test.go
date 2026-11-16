@@ -17,6 +17,12 @@ import (
 
 func TestProvidersUseInjectedHTTPClient(t *testing.T) {
 	for _, provider := range NewMetadataClient(nil, nil).AvailabilityProviders() {
+		if provider.ID == ProviderAVBase {
+			// avbase fetches through the local browser helper, so there is no
+			// injectable HTTP transport to assert on.
+			t.Run(provider.Name, func(t *testing.T) { t.Skip("browser-backed provider") })
+			continue
+		}
 		t.Run(provider.Name, func(t *testing.T) {
 			calls := 0
 			injectedErr := errors.New("injected transport")

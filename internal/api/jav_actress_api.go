@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -56,15 +57,32 @@ func newActressProfilePayload(info *scrape.ActressInfo) actressProfilePayload {
 // resolveJavActressProfile reads a profile by name. MinnanoAV is the primary
 // source because it also reports former names; AV Wiki and JavModel are the
 // fallbacks used when Minnanon returns nothing.
-func resolveJavActressProfile(ctx context.Context, name string) (*scrape.ActressInfo, string, error) {
-	sources := []struct {
+func resolveJavActressProfile(ctx context.Context, name, source string) (*scrape.ActressInfo, string, error) {
+	candidates := []struct {
 		provider scrape.Provider
 		label    string
 	}{
 		{scrape.ProviderMinnanoAV, "minnano"},
 		{scrape.ProviderAVWiki, "avwiki"},
+		{scrape.ProviderAVBase, "avbase"},
 		{scrape.ProviderJavModel, "javmodel"},
 	}
+	sources := candidates
+	explicit := false
+	if wanted := strings.ToLower(strings.TrimSpace(source)); wanted != "" {
+		explicit = true
+		sources = nil
+		for _, candidate := range candidates {
+			if candidate.label == wanted {
+				sources = append(sources, candidate)
+				break
+			}
+		}
+		if len(sources) == 0 {
+			return nil, "", fmt.Errorf("unknown actress source: %s", source)
+		}
+	}
+	var lastErr error
 	for _, source := range sources {
 		if ctx.Err() != nil {
 			return nil, "", ctx.Err()
@@ -73,6 +91,7 @@ func resolveJavActressProfile(ctx context.Context, name string) (*scrape.Actress
 		if err != nil {
 			if !errors.Is(err, scrape.ErrNotFound) {
 				logging.Info("actress profile lookup failed source=%s name=%s err=%v", source.label, name, err)
+				lastErr = err
 			}
 			continue
 		}
@@ -80,6 +99,12 @@ func resolveJavActressProfile(ctx context.Context, name string) (*scrape.Actress
 			continue
 		}
 		return info, source.label, nil
+	}
+	// An explicitly requested source that failed for a transport reason (site
+	// protection, timeout) is not the same as "no such actress"; surface it so the
+	// UI can suggest another source instead of claiming the name does not exist.
+	if explicit && lastErr != nil {
+		return nil, "", lastErr
 	}
 	return nil, "", scrape.ErrNotFound
 }
@@ -121,13 +146,17 @@ func getJavActressProfile(c *gin.Context) {
 	}
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 45*time.Second)
 	defer cancel()
-	info, source, err := resolveJavActressProfile(ctx, name)
+	info, source, err := resolveJavActressProfile(ctx, name, c.Query("source"))
 	if err != nil {
 		if errors.Is(err, scrape.ErrNotFound) {
 			respondLocalizedError(c, http.StatusNotFound, "没有查到该女优的资料", "No profile was found for this actress")
 			return
 		}
 		logging.Error("actress profile name=%s: %v", name, err)
+		if strings.TrimSpace(c.Query("source")) != "" {
+			respondLocalizedError(c, http.StatusBadGateway, "这个数据源现在访问不了（被网站验证拦住），请换用 AV Wiki 或 avbase", "This source is blocked right now; try AV Wiki or avbase instead")
+			return
+		}
 		respondLocalizedError(c, http.StatusBadGateway, "查询女优资料失败，请稍后重试", "Failed to load the actress profile; try again later")
 		return
 	}
@@ -174,7 +203,7 @@ func fillJavActressProfile(c *gin.Context) {
 			respondLocalizedError(c, http.StatusBadRequest, "女优名不能为空", "Actress name is required")
 			return
 		}
-		info, resolvedSource, err := resolveJavActressProfile(ctx, name)
+		info, resolvedSource, err := resolveJavActressProfile(ctx, name, "")
 		if err != nil {
 			if errors.Is(err, scrape.ErrNotFound) {
 				respondLocalizedError(c, http.StatusNotFound, "没有查到该女优的资料", "No profile was found for this actress")

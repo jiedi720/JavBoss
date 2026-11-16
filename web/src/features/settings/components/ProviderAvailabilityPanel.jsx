@@ -21,6 +21,7 @@ const providerNames = {
   javmenu: 'JavMenu',
   minnanoav: 'MinnanoAV',
   avwiki: 'AV Wiki',
+  avbase: 'avbase',
 }
 
 function resultLabel(result) {
@@ -33,6 +34,8 @@ function resultLabel(result) {
       return zh('可用', 'Available')
     case 'not_found':
       return zh('未获取到测试数据', 'Test data not found')
+    case 'auth_required':
+      return zh('需要登录官方账号', 'Account login required')
     case 'invalid_response':
       return zh('数据解析失败或不完整', 'Invalid or incomplete data')
     case 'http_error':

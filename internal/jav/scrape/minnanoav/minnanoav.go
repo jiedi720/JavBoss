@@ -43,15 +43,30 @@ var (
 )
 
 // LookupActressByName resolves an exact actress name to a profile.
+//
+// The site's search endpoint is behind a Cloudflare challenge that rejects
+// server-side clients, so a failed search falls back to locating the profile
+// page through a public search engine and reading it directly.
 func (p *MinnanoAVClient) LookupActressByName(ctx context.Context, name string) (*metadata.ActressInfo, error) {
 	name = normalizeMinnanoAVName(name)
 	if name == "" {
 		return nil, metadata.ErrNotFound
 	}
 
-	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 40*time.Second)
 	defer cancel()
-	return p.lookupMinnanoAVActressByName(ctx, minnanoAVBaseURL, name)
+
+	info, searchErr := p.lookupMinnanoAVActressByName(ctx, minnanoAVBaseURL, name)
+	if searchErr == nil && info != nil {
+		return info, nil
+	}
+	if searchErr != nil {
+		logging.Info("minnanoav search page failed, trying discovery: %v", searchErr)
+	}
+	if ctx.Err() != nil {
+		return nil, ctx.Err()
+	}
+	return p.lookupMinnanoAVActressByDiscovery(ctx, name)
 }
 
 func (p *MinnanoAVClient) lookupMinnanoAVActressByName(ctx context.Context, baseURL, name string) (*metadata.ActressInfo, error) {

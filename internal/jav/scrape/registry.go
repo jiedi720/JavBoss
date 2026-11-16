@@ -5,6 +5,7 @@ import (
 	"sync"
 	"time"
 
+	"javboss/internal/jav/scrape/avbase"
 	"javboss/internal/jav/scrape/avmoo"
 	"javboss/internal/jav/scrape/avsox"
 	"javboss/internal/jav/scrape/avwiki"
@@ -47,7 +48,7 @@ var defaultMetadataClient = NewMetadataClient(nil, nil)
 
 func defaultProviders() map[Provider]any {
 	result := make(map[Provider]any)
-	for _, id := range []Provider{ProviderJavBus, ProviderJavDatabase, ProviderJavDB, ProviderJavDBAPI, ProviderAvmoo, ProviderAvsox, ProviderJavMenu, ProviderJavModel, ProviderMinnanoAV, ProviderThePornDB, ProviderAVWiki} {
+	for _, id := range []Provider{ProviderJavBus, ProviderJavDatabase, ProviderJavDB, ProviderJavDBAPI, ProviderAvmoo, ProviderAvsox, ProviderJavMenu, ProviderJavModel, ProviderMinnanoAV, ProviderThePornDB, ProviderAVWiki, ProviderAVBase} {
 		httpClient := newCachedProviderHTTPClient(id)
 		result[id], _ = newProvider(id, httpClient)
 	}
@@ -101,6 +102,8 @@ func newProvider(id Provider, httpClient *http.Client) (any, error) {
 		return theporndb.New(httpClient), nil
 	case ProviderAVWiki:
 		return avwiki.New(httpClient), nil
+	case ProviderAVBase:
+		return avbase.New(), nil
 	default:
 		return nil, ErrUnsupportedProvider
 	}

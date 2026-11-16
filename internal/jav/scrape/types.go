@@ -26,6 +26,7 @@ const (
 	ProviderManualScrape = metadata.ProviderManualScrape
 	ProviderJavDBAPI     = metadata.ProviderJavDBAPI
 	ProviderAVWiki       = metadata.ProviderAVWiki
+	ProviderAVBase       = metadata.ProviderAVBase
 )
 
 func ParseProvider(value int) Provider { return metadata.ParseProvider(value) }

@@ -502,7 +502,7 @@ export function JavIdolEditModal({
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [mergeOpen, setMergeOpen] = useState(false)
-  const [recognizing, setRecognizing] = useState(false)
+  const [recognizing, setRecognizing] = useState('')
   const [recognizeNote, setRecognizeNote] = useState('')
   const actorGender = actorGenderOf(gender, item)
   const terms = actorTerms(actorGender)
@@ -541,17 +541,17 @@ export function JavIdolEditModal({
     }))
   }
 
-  const handleRecognize = async () => {
+  const handleRecognize = async (sourceKey) => {
     const name = String(form.japanese_name || form.name || '').trim()
     if (!name) {
       setRecognizeNote(zh('请先填写日文名或名字再识别', 'Enter a Japanese name first'))
       return
     }
-    setRecognizing(true)
+    setRecognizing(sourceKey)
     setRecognizeNote('')
     setError('')
     try {
-      const data = await fetchJavActressProfile(name)
+      const data = await fetchJavActressProfile(name, { source: sourceKey })
       const profile = data?.profile || {}
       const source = data?.source || ''
       const next = { ...form }
@@ -611,11 +611,23 @@ export function JavIdolEditModal({
             )
       )
     } catch (err) {
+      const failedLabel =
+        sourceKey === 'minnano' ? 'minnano' : sourceKey === 'avbase' ? 'avbase' : 'AV Wiki'
+      const helperMissing =
+        sourceKey === 'minnano' && String(err?.message || '').includes('helper-unavailable')
       setRecognizeNote(
-        zh(`识别失败：${getErrorMessage(err)}`, `Recognition failed: ${getErrorMessage(err)}`)
+        helperMissing
+          ? zh(
+              'minnano 的搜索页只认你浏览器自己的通行证：请启用「JavBoss助手」脚本后重试，识别会自动让它代抓',
+              'minnano only accepts your browser pass: enable the JavBoss helper script and retry'
+            )
+          : zh(
+              `从 ${failedLabel} 识别失败：${getErrorMessage(err)}`,
+              `Recognition failed from ${failedLabel}: ${getErrorMessage(err)}`
+            )
       )
     } finally {
-      setRecognizing(false)
+      setRecognizing('')
     }
   }
 
@@ -674,25 +686,23 @@ export function JavIdolEditModal({
           {!terms.male && (
             <div className="mb-3 rounded border border-gray-200 bg-gray-50 p-3 dark:border-ui-border dark:bg-ui-muted">
               <div className="flex flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  disabled={recognizing || saving}
-                  className="flex items-center gap-1.5 rounded bg-sky-600 px-3 py-1.5 text-sm text-white transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-60"
-                  onClick={handleRecognize}
-                  title={zh(
-                    '从 minnano / AV Wiki 识别并回填女优资料',
-                    'Recognize and fill profile from minnano / AV Wiki'
-                  )}
-                >
-                  <SearchRoundedIcon sx={{ fontSize: 16 }} />
-                  {recognizing ? zh('识别中…', 'Recognizing…') : zh('信息识别', 'Recognize info')}
-                </button>
-                <span className="text-xs text-gray-500 dark:text-ui-faint">
-                  {zh(
-                    '按当前名字从 minnano / AV Wiki 补齐资料，只填空字段',
-                    'Fill empty fields from minnano / AV Wiki'
-                  )}
-                </span>
+                {[
+                  { key: 'minnano', label: 'minnano' },
+                  { key: 'avwiki', label: 'AV Wiki' },
+                  { key: 'avbase', label: 'avbase' },
+                ].map((source) => (
+                  <button
+                    key={source.key}
+                    type="button"
+                    disabled={!!recognizing || saving}
+                    className="flex items-center gap-1.5 rounded bg-sky-600 px-3 py-1.5 text-sm text-white transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-60"
+                    onClick={() => handleRecognize(source.key)}
+                    title={zh(`从 ${source.label} 识别并校准`, `Recognize from ${source.label}`)}
+                  >
+                    <SearchRoundedIcon sx={{ fontSize: 16 }} />
+                    {recognizing === source.key ? zh('识别中…', 'Recognizing…') : source.label}
+                  </button>
+                ))}
               </div>
               {recognizeNote ? (
                 <div className="mt-2 text-xs text-gray-600 dark:text-ui-secondary">

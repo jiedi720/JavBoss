@@ -2,6 +2,7 @@ import { isActorListTab } from '@/utils/actorTabs'
 import { getSeriesDisplayName, preferChineseSeries } from '@/features/jav/titleTranslation'
 import { useStore } from '@/store'
 import { createDefaultIdolProfileFilters } from '@/constants/jav'
+import { clearIdolJumpOrigin, rememberIdolJumpOrigin } from '@/navigation/idolJumpOrigin'
 import { useCallback } from 'react'
 
 export default function useSectionNavigation({
@@ -22,6 +23,7 @@ export default function useSectionNavigation({
     setTagModalOpen(false)
     setDisplaySettingsTab(null)
     setGlobalSettingsOpen(false)
+    clearIdolJumpOrigin()
     if (isJavMode) {
       const updates = {
         viewMode: 'jav',
@@ -76,6 +78,7 @@ export default function useSectionNavigation({
 
   const handleSelectSideTab = (tab) => {
     if (!switchLibraryTab(tab)) return
+    clearIdolJumpOrigin()
     // Enter the existing loading view before mounting a potentially large cached grid.
     if (tab === 'video') forceReloadVideos()
     else forceReloadJavByTab(tab)
@@ -85,6 +88,16 @@ export default function useSectionNavigation({
     const id = Number(idol?.id)
     if (!Number.isFinite(id) || id <= 0) return
     saveScrollBeforeUrlStateChange()
+    // Remember the actor list we are leaving, together with the filters it was
+    // showing, so clearing the actor filter can restore that exact view.
+    const before = useStore.getState()
+    rememberIdolJumpOrigin(isActorListTab(javTab) ? javTab : '', {
+      javSearchTerm: before.javSearchTerm,
+      idolPage: before.idolPage,
+      idolTempSort: before.idolTempSort,
+      idolFavoriteGroupId: before.idolFavoriteGroupId,
+      idolProfileFilters: before.idolProfileFilters,
+    })
     useStore.setState({
       viewMode: 'jav',
       videoTempSort: '',
@@ -118,6 +131,8 @@ export default function useSectionNavigation({
       const id = Number(idol?.id ?? idol)
       if (!Number.isFinite(id) || id <= 0) return
       saveScrollBeforeUrlStateChange()
+      // Filtering from inside the JAV grid must not inherit the actor-list origin.
+      clearIdolJumpOrigin()
       useStore.getState().selectJavIdol(id)
     },
     [saveScrollBeforeUrlStateChange]
@@ -127,6 +142,7 @@ export default function useSectionNavigation({
     const id = Number(studio?.id)
     if (!Number.isFinite(id) || id <= 0) return
     saveScrollBeforeUrlStateChange()
+    clearIdolJumpOrigin()
     useStore.setState({
       viewMode: 'jav',
       videoTempSort: '',
@@ -159,6 +175,7 @@ export default function useSectionNavigation({
     const id = Number(series?.id)
     if (!Number.isFinite(id) || id <= 0) return
     saveScrollBeforeUrlStateChange()
+    clearIdolJumpOrigin()
     useStore.setState({
       viewMode: 'jav',
       videoTempSort: '',

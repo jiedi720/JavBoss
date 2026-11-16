@@ -53,6 +53,24 @@ func javDBAPISignature(ts int64) string {
 	return fmt.Sprintf("%d.lpw6vgqzsp.%x", ts, sum)
 }
 
+// javDBAPIAuthRequired reports the rejection the official API returns for
+// anonymous clients. The signature itself is still accepted (startup works), but
+// content endpoints now demand a signed-in account.
+func javDBAPIAuthRequired(action, message string) bool {
+	switch {
+	case strings.EqualFold(strings.TrimSpace(action), "JWTVerificationError"),
+		strings.EqualFold(strings.TrimSpace(action), "Unauthorized"):
+		return true
+	}
+	msg := strings.ToLower(strings.TrimSpace(message))
+	for _, marker := range []string{"登錄", "登录", "login", "unauthorized", "未登入"} {
+		if strings.Contains(msg, marker) {
+			return true
+		}
+	}
+	return false
+}
+
 func (p *JavDBAPIClient) init() {
 	p.once.Do(func() {
 		if p.limiter == nil {
@@ -114,6 +132,7 @@ func (p *JavDBAPIClient) get(ctx context.Context, path string, params url.Values
 	var envelope struct {
 		Success json.RawMessage `json:"success"`
 		Action  string          `json:"action"`
+		Message string          `json:"message"`
 		Data    json.RawMessage `json:"data"`
 	}
 	if err := json.Unmarshal(body, &envelope); err != nil {
@@ -121,6 +140,12 @@ func (p *JavDBAPIClient) get(ctx context.Context, path string, params url.Values
 	}
 	success := strings.Trim(string(envelope.Success), "\"")
 	if success != "1" && !strings.EqualFold(success, "true") {
+		// The official API stopped serving anonymous clients: search answers
+		// HTTP 200 with success=0, action=JWTVerificationError and the message
+		// "請登錄帳號". Report it as an account problem, not a parse failure.
+		if javDBAPIAuthRequired(envelope.Action, envelope.Message) {
+			return fmt.Errorf("%w: %s", metadata.ErrAuthRequired, strings.TrimSpace(envelope.Message))
+		}
 		return fmt.Errorf("javdb-api: request rejected (%s)", envelope.Action)
 	}
 	if len(envelope.Data) == 0 || string(envelope.Data) == "null" {

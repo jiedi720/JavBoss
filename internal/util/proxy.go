@@ -111,6 +111,25 @@ func SetProxySettings(mode, host, port string) {
 	}
 }
 
+// ProxyURL reports the proxy currently used by HTTP clients, or nil for direct
+// connections. Helpers that shell out to another binary (for example the Windows
+// curl bridge inside WSL) need the value as a plain URL.
+func ProxyURL() *url.URL {
+	fn := DetectProxyFunc()
+	if fn == nil {
+		return nil
+	}
+	req, err := http.NewRequest(http.MethodGet, "https://example.com/", nil)
+	if err != nil {
+		return nil
+	}
+	u, err := fn(req)
+	if err != nil {
+		return nil
+	}
+	return u
+}
+
 // SetProxyPort configures the local proxy port. Use <=0 for auto-detection.
 func SetProxyPort(port int) {
 	SetProxy("127.0.0.1", port)

@@ -19,6 +19,7 @@ import {
 } from '@/constants/jav'
 import { zh } from '@/utils/i18n'
 import { getIdolDisplayName } from '@/utils/javIdol'
+import { takeIdolJumpOrigin } from '@/navigation/idolJumpOrigin'
 
 export default function useLibraryFilters({
   saveScrollBeforeUrlStateChange,
@@ -406,10 +407,17 @@ export default function useLibraryFilters({
       items.push({
         key: `jav-idol-${id}`,
         label: zh(`${terms.zhNoun}: ${name}`, `${terms.enSingularCap}: ${name}`),
-        onRemove: () =>
-          updateJavFilters({
-            javIdolIds: javIdolIds.filter((item) => Number(item) !== Number(id)),
-          }),
+        onRemove: () => {
+          const nextIdolIds = javIdolIds.filter((item) => Number(item) !== Number(id))
+          // Removing the last actor filter takes the user back to the actor list
+          // they jumped in from, restored with the filters it was showing.
+          const origin = nextIdolIds.length === 0 ? takeIdolJumpOrigin() : null
+          updateJavFilters(
+            origin
+              ? { ...(origin.filters || {}), javIdolIds: [], javTab: origin.tab }
+              : { javIdolIds: nextIdolIds }
+          )
+        },
       })
     })
     javTags.forEach((id) => {
@@ -528,6 +536,7 @@ export default function useLibraryFilters({
     setJavSearchInput('')
     const updates = { javSearchTerm: '' }
     if (javTab === 'list') {
+      const origin = takeIdolJumpOrigin()
       Object.assign(updates, {
         javIdolIds: [],
         javTags: [],
@@ -543,6 +552,12 @@ export default function useLibraryFilters({
         javRandomMode: false,
         javRandomSeed: null,
       })
+      if (origin) {
+        // The filter that brought the user here came from an actor list, so
+        // clearing everything also returns them to that list — keeping the
+        // search, page and profile filters it was showing at the time.
+        Object.assign(updates, origin.filters || {}, { javTab: origin.tab })
+      }
     } else if (isActorListTab(javTab)) {
       Object.assign(updates, {
         idolPage: 1,

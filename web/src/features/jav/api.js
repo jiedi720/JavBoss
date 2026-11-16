@@ -896,8 +896,9 @@ export async function lookupJavActresses(code, { signal } = {}) {
   return res.json()
 }
 
-export async function fetchJavActressProfile(name, { signal } = {}) {
+export async function fetchJavActressProfile(name, { source = '', signal } = {}) {
   const params = new URLSearchParams({ name: String(name || '').trim() })
+  if (source) params.set('source', source)
   const res = await apiFetch(`/jav/actress-profile?${params.toString()}`, { signal })
   if (!res.ok) throw await apiError(res)
   return res.json()

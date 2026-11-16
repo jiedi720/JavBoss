@@ -19,6 +19,7 @@ const (
 	ProviderManualScrape Provider = 11
 	ProviderJavDBAPI     Provider = 12
 	ProviderAVWiki       Provider = 13
+	ProviderAVBase       Provider = 14
 )
 
 func (p Provider) String() string {
@@ -45,6 +46,8 @@ func (p Provider) String() string {
 		return "javmenu"
 	case ProviderAVWiki:
 		return "avwiki"
+	case ProviderAVBase:
+		return "avbase"
 	case ProviderMinnanoAV:
 		return "minnanoav"
 	case ProviderManualScrape:
@@ -58,7 +61,7 @@ func (p Provider) String() string {
 func ParseProvider(value int) Provider {
 	p := Provider(value)
 	switch p {
-	case ProviderJavBus, ProviderJavDatabase, ProviderUser, ProviderJavDB, ProviderAvmoo, ProviderThePornDB, ProviderJavModel, ProviderAvsox, ProviderJavMenu, ProviderMinnanoAV, ProviderManualScrape, ProviderJavDBAPI, ProviderAVWiki:
+	case ProviderJavBus, ProviderJavDatabase, ProviderUser, ProviderJavDB, ProviderAvmoo, ProviderThePornDB, ProviderJavModel, ProviderAvsox, ProviderJavMenu, ProviderMinnanoAV, ProviderManualScrape, ProviderJavDBAPI, ProviderAVWiki, ProviderAVBase:
 		return p
 	default:
 		return ProviderUnknown

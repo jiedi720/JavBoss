@@ -240,7 +240,7 @@ func TestAvailabilityUsesFreshClientsAndBypassesLookupCache(t *testing.T) {
 func TestAvailabilityProvidersCoverRegistry(t *testing.T) {
 	c := NewMetadataClient(nil, nil)
 	providers := c.AvailabilityProviders()
-	if len(providers) != 11 || len(providers) != len(c.providers) {
+	if len(providers) != 12 || len(providers) != len(c.providers) {
 		t.Fatalf("providers=%+v", providers)
 	}
 	for i, p := range providers {

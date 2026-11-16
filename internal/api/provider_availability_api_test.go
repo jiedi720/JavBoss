@@ -24,7 +24,7 @@ func TestProviderAvailabilityRoutes(t *testing.T) {
 	list := httptest.NewRecorder()
 	router.ServeHTTP(list, httptest.NewRequest(http.MethodGet, "/jav/providers", nil))
 	var providers []scrape.AvailabilityProvider
-	if err := json.Unmarshal(list.Body.Bytes(), &providers); err != nil || list.Code != http.StatusOK || len(providers) != 11 {
+	if err := json.Unmarshal(list.Body.Bytes(), &providers); err != nil || list.Code != http.StatusOK || len(providers) != 12 {
 		t.Fatalf("provider list: status=%d body=%s err=%v", list.Code, list.Body, err)
 	}
 	for _, provider := range providers {

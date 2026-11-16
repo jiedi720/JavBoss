@@ -211,7 +211,7 @@ func availabilitySample(provider Provider) string {
 	switch provider {
 	case ProviderJavModel:
 		return "波多野結衣"
-	case ProviderMinnanoAV, ProviderAVWiki:
+	case ProviderMinnanoAV, ProviderAVWiki, ProviderAVBase:
 		return "三上悠亜"
 	case ProviderAvsox:
 		return "030919_047"
@@ -238,6 +238,8 @@ func availabilityErrorStatus(err error) string {
 		return "network_error"
 	case errors.Is(err, ErrNotFound):
 		return "not_found"
+	case errors.Is(err, ErrAuthRequired):
+		return "auth_required"
 	default:
 		return "invalid_response"
 	}
