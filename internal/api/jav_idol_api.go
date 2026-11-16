@@ -603,6 +603,15 @@ func enrichJavIdolSummary(ctx context.Context, item *dbpkg.JavIdolSummary, cover
 	item.ChineseName = strings.TrimSpace(item.ChineseName)
 	item.CoverCode = strings.TrimSpace(item.CoverCode)
 
+	// Male actors do not appear on their works' covers (those are the female
+	// performers' posters). Never borrow a work cover as a male actor's default
+	// cover; leave it empty so the UI shows the name placeholder until the user
+	// uploads a dedicated photo. A custom uploaded cover still wins above.
+	if item.CoverImage == "" && models.NormalizeActorGender(item.Gender) == models.ActorGenderMale {
+		item.CoverCode = ""
+		return
+	}
+
 	// A cover the user uploaded or downloaded from a URL wins over any
 	// work-derived cover so the card shows exactly what the user picked.
 	if item.CoverImage != "" {
