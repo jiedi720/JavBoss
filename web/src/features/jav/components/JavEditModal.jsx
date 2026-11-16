@@ -31,6 +31,7 @@ import {
   fetchJavStudios,
   fetchJavSeries,
   fetchJavIdolOptions,
+  lookupAvdanyuActors,
   createJavIdol,
   createJavScrapedTag,
   createJavTag,
@@ -66,6 +67,11 @@ function ActorPicker({
   onRemove,
   onSelect,
   preferChineseName,
+  onLookup,
+  lookupLoading = false,
+  lookupCandidates,
+  onLookupAdd,
+  lookupError,
 }) {
   const panelRef = useRef(null)
   useEffect(() => {
@@ -82,7 +88,47 @@ function ActorPicker({
   }, [pickerOpen, optionsLoading])
   return (
     <div ref={pickerRef}>
-      <div className="text-[13px] font-semibold text-black dark:text-ui-text">{title}</div>
+      <div className="flex items-center justify-between gap-2">
+        <div className="text-[13px] font-semibold text-black dark:text-ui-text">{title}</div>
+        {onLookup ? (
+          <button
+            type="button"
+            className="inline-flex shrink-0 items-center gap-1 rounded-md border border-blue-300 px-2 py-0.5 text-[11px] font-medium text-blue-700 hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-ui-border dark:text-blue-300 dark:hover:bg-ui-hover"
+            onClick={onLookup}
+            disabled={saving || creating || lookupLoading}
+            title={zh('从 AV男優まとめ 查询本片男优', 'Look up actors from AV男優まとめ')}
+          >
+            {lookupLoading ? zh('查询中…', 'Looking up…') : zh('补全男优', 'Find actors')}
+          </button>
+        ) : null}
+      </div>
+      {lookupError ? (
+        <div className="mt-1 text-[11px] text-red-600 dark:text-red-300">{lookupError}</div>
+      ) : null}
+      {lookupCandidates?.length ? (
+        <div className="mt-2 rounded-md border border-blue-200 bg-blue-50/60 p-2 dark:border-ui-border dark:bg-ui-hover">
+          <div className="mb-1 text-[11px] font-semibold text-gray-600 dark:text-ui-secondary">
+            {zh(
+              'AV男優まとめ 找到的男优（点选添加）',
+              'Actors found on AV男優まとめ (click to add)'
+            )}
+          </div>
+          <div className="flex flex-wrap gap-1">
+            {lookupCandidates.map((name) => (
+              <button
+                key={name}
+                type="button"
+                className="inline-flex items-center gap-0.5 rounded-full border border-blue-300 bg-white px-2 py-0.5 text-xs text-blue-700 hover:bg-blue-100 disabled:opacity-60 dark:border-ui-border dark:bg-ui-surface dark:text-blue-300"
+                onClick={() => onLookupAdd(name)}
+                disabled={saving}
+              >
+                <AddIcon sx={{ fontSize: 11 }} />
+                {name}
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
       <div className="mt-2 flex flex-wrap items-center gap-2">
         {selectedOptions.map((actor) => (
           <SelectedChip
@@ -224,6 +270,9 @@ function JavEditForm({
   const [actorOptions, setActorOptions] = useState([])
   const [actorSearch, setActorSearch] = useState('')
   const [actorPickerOpen, setActorPickerOpen] = useState(false)
+  const [avdanyuLoading, setAvdanyuLoading] = useState(false)
+  const [avdanyuCandidates, setAvdanyuCandidates] = useState([])
+  const [avdanyuError, setAvdanyuError] = useState('')
   const [creatingActor, setCreatingActor] = useState(false)
   const [selectedStudioId, setSelectedStudioId] = useState('')
   const [selectedSeriesId, setSelectedSeriesId] = useState('')
@@ -661,6 +710,55 @@ function JavEditForm({
     }
   }
 
+  const handleAvdanyuLookup = async () => {
+    const code = String(initialItem?.code || '').trim()
+    if (!code) {
+      setAvdanyuError(zh('当前作品没有番号，无法查询', 'No JAV code on this item'))
+      return
+    }
+    setAvdanyuLoading(true)
+    setAvdanyuError('')
+    setAvdanyuCandidates([])
+    try {
+      const data = await lookupAvdanyuActors(code)
+      const names = Array.from(
+        new Set(
+          (data.works || []).flatMap((w) =>
+            (w.actors || []).map((a) => String(a).trim()).filter(Boolean)
+          )
+        )
+      )
+      setAvdanyuCandidates(names)
+      if (names.length === 0) setAvdanyuError(zh('没有找到男优', 'No actors found'))
+    } catch (err) {
+      setAvdanyuError(getErrorMessage(err))
+    } finally {
+      setAvdanyuLoading(false)
+    }
+  }
+
+  const handleAvdanyuAdd = async (name) => {
+    const clean = String(name || '').trim()
+    if (!clean) return
+    setAvdanyuError('')
+    try {
+      const existing = [...actorOptions, ...createdActors].find((a) => {
+        const display = getIdolDisplayName(a, false)
+        return display === clean || (a?.names || []).includes(clean)
+      })
+      if (existing?.id) {
+        toggleActor(existing.id, true)
+        return
+      }
+      const created = await createJavIdol(clean, ACTOR_GENDER_MALE)
+      if (!created?.id) throw new Error(zh('创建男优失败', 'Failed to create actor'))
+      setCreatedActors((current) => mergeOptionsById(current, [created]))
+      toggleActor(created.id, true)
+    } catch (err) {
+      setAvdanyuError(getErrorMessage(err))
+    }
+  }
+
   const addScrapedTag = async () => {
     const name = scrapedTagSearch.trim()
     if (!name || creatingScrapedTag || tagOptionsLoading) return
@@ -1075,6 +1173,11 @@ function JavEditForm({
           onRemove={(id) => toggleActor(id, false)}
           onSelect={(id) => toggleActor(id, true)}
           preferChineseName={preferChineseName}
+          onLookup={handleAvdanyuLookup}
+          lookupLoading={avdanyuLoading}
+          lookupCandidates={avdanyuCandidates}
+          onLookupAdd={handleAvdanyuAdd}
+          lookupError={avdanyuError}
         />
         {optionsError ? (
           <div className="text-sm text-red-600 dark:text-red-300">{optionsError}</div>

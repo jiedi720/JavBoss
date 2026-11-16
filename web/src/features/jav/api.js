@@ -580,6 +580,14 @@ export async function deleteJavIdol(id, gender = ACTOR_GENDER_FEMALE) {
   }
 }
 
+export async function lookupAvdanyuActors(keyword) {
+  const res = await apiFetch(`/jav/avdanyu/lookup?keyword=${encodeURIComponent(keyword)}`)
+  if (!res.ok) {
+    throw await apiError(res)
+  }
+  return res.json()
+}
+
 export async function fetchJavIdolOptions({
   limit = 25,
   offset = 0,
